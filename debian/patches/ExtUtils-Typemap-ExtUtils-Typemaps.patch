@@ -1,0 +1,21 @@
+From: Nicolas Dandrimont <nicolas.dandrimont@crans.org>
+Date: Mon, 28 Oct 2013 09:39:17 +0100
+Subject: ExtUtils::Typemap -> ExtUtils::Typemaps
+
+---
+ xs/Build.PL | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xs/Build.PL b/xs/Build.PL
+index d68c3fa..bc18bc5 100644
+--- a/xs/Build.PL
++++ b/xs/Build.PL
+@@ -29,7 +29,7 @@ my $build = Module::Build::WithXSpp->new(
+     dist_abstract   => 'XS code for Slic3r',
+     build_requires => {qw(
+         ExtUtils::ParseXS           3.18
+-        ExtUtils::Typemap           1.00
++        ExtUtils::Typemaps          1.00
+         ExtUtils::Typemaps::Default 1.05
+         ExtUtils::XSpp              0.17
+         Module::Build               0.3601

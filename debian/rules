@@ -1,0 +1,52 @@
+#!/usr/bin/make -f
+
+export SLIC3R_NO_AUTO=yes
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	dh_auto_configure -Dxs
+
+override_dh_auto_build:
+	xvfb-run -a dh_auto_build -Dxs
+
+override_dh_auto_clean:
+	dh_auto_clean -Dxs
+	rm -rf xs/Build xs/MYMETA.json xs/MYMETA.yml xs/_build/ xs/blib/ xs/buildtmp/
+	dh_auto_clean
+
+override_dh_auto_test:
+ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
+	prove -v -Ilib -Ixs/blib/arch -Ixs/blib/lib t xs/t
+endif
+
+override_dh_auto_install:
+	dh_auto_install -Dxs
+
+	# Install Slic3r Perl module
+	mkdir -p $(CURDIR)/debian/slic3r/usr/share/perl5
+	cp -r lib/* $(CURDIR)/debian/slic3r/usr/share/perl5
+
+	# Install Slic3r in PATH
+	mkdir -p $(CURDIR)/debian/slic3r/usr/bin
+	cp slic3r.pl $(CURDIR)/debian/slic3r/usr/bin/slic3r
+
+	# Install Slic3r resources in /usr/share/slic3r
+	mkdir -p $(CURDIR)/debian/slic3r/usr/share
+	cp -r var $(CURDIR)/debian/slic3r/usr/share/slic3r
+	chmod 644 $(CURDIR)/debian/slic3r/usr/share/slic3r/*.png
+
+	# Install zsh completion
+	mkdir -p $(CURDIR)/debian/slic3r/usr/share/zsh/vendor-completions
+	cp utils/zsh/functions/_slic3r $(CURDIR)/debian/slic3r/usr/share/zsh/vendor-completions/
+
+	# Install utilities
+	set -e; for file in utils/*.pl; do \
+		cp $$file $(CURDIR)/debian/slic3r/usr/bin/`basename $$file .pl`; \
+		chmod +x $(CURDIR)/debian/slic3r/usr/bin/`basename $$file .pl`; \
+	done
+
+	# Install example post-processing scripts
+	mkdir -p $(CURDIR)/debian/slic3r/usr/share/doc/slic3r/examples
+	cp -r utils/post-processing $(CURDIR)/debian/slic3r/usr/share/doc/slic3r/examples
