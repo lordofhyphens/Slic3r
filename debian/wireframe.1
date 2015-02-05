@@ -1,0 +1,26 @@
+.TH wireframe "1"
+.SH NAME
+wireframe \- Generate wireframe G-code prints
+.SH SYNOPSIS
+.B wireframe
+[ \fIOPTIONS \fR] \fIfile.stl\fR
+.SH DESCRIPTION
+wireframe is an experimental script which generates G-code to make wireframe
+prints of STL files instead of solid prints.
+.SH OPTIONS
+.TP
+\fB\-\-help\fR
+Output this usage screen and exit
+.HP
+\fB\-\-output\fR, \fB\-o\fR
+Write to the specified file
+.HP
+\fB\-\-step\-height\fR, \fB\-h\fR
+Use the specified step height
+.HP
+\fB\-\-nozzle\-angle\fR, \fB\-a\fR
+Max nozzle angle
+.HP
+\fB\-\-nozzle\-width\fR, \fB\-w\fR
+External nozzle diameter
+.HP
