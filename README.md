@@ -16,6 +16,21 @@ with Mach3, LinuxCNC and Machinekit controllers.
 See the [project homepage](http://slic3r.org/) at slic3r.org and the
 [manual](http://manual.slic3r.org/) for more information.
 
+
+This is a partially-Debianized fork of Slic3r, kept up-to-date with upstream. 
+To build packages, make sure you have the following installed:
+
+debhelper (>= 9.20120312), help2man, fakeroot, libboost-all-dev,
+libboost-geometry-utils-perl, libclass-xsaccessor-perl, libencode-locale-perl,
+libextutils-parsexs-perl (>= 3.180004), libextutils-typemaps-default-perl,
+libfile-spec-perl, libio-stringy-perl, libmath-convexhull-monotonechain-perl,
+libmath-geometry-voronoi-perl, libmath-planepath-perl,
+libmodule-build-withxspp-perl, libmoo-perl, libopengl-perl, libstorable-perl,
+libtime-hires-perl, libwx-perl, libxml-sax-expatxs-perl, perl, xfonts-base,
+xvfb, xauth
+
+and run "fakeroot debian/rules binary" from the main Slic3r directory on clone.
+
 ### What language is it written in?
 
 The core geometric algorithms and data structures are written in C++,
