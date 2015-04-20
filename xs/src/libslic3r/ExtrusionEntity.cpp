@@ -118,7 +118,9 @@ ExtrusionPath::gcode(Extruder* extruder, double e, double F,
     double xofs, double yofs, std::string extrusion_axis,
     std::string gcode_line_suffix) const
 {
+#ifdef SLIC3RXS
     dSP;
+#endif
 
     std::stringstream stream;
     stream.setf(std::ios::fixed);

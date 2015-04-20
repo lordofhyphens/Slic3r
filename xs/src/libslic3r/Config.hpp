@@ -471,11 +471,11 @@ class ConfigBase
     t_config_option_keys diff(ConfigBase &other);
     std::string serialize(const t_config_option_key opt_key);
     bool set_deserialize(const t_config_option_key opt_key, std::string str);
-    void set_ifndef(t_config_option_key opt_key, SV* value, bool deserialize = false);
     double get_abs_value(const t_config_option_key opt_key);
     double get_abs_value(const t_config_option_key opt_key, double ratio_over);
     
     #ifdef SLIC3RXS
+    void set_ifndef(t_config_option_key opt_key, SV* value, bool deserialize = false);
     SV* as_hash();
     SV* get(t_config_option_key opt_key);
     SV* get_at(t_config_option_key opt_key, size_t i);
