@@ -29,8 +29,7 @@ BEGIN {
 warn "Running Slic3r under Perl 5.16 is not supported nor recommended\n"
     if $^V == v5.16;
 
-use FindBin;
-our $var = decode_path($FindBin::Bin) . "/var";
+our $var = "/usr/share/slic3r";
 
 use Moo 1.003001;
 
