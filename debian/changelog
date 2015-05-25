@@ -1,7 +1,7 @@
 slic3r (1.2.7-git+dfsg-1.1) UNRELEASED; urgency=medium
 
   * Non-maintainer upload.
-  * Upstream change to 1.2.7-dev
+  * Upstream change to 1.2.7
 
  -- Joseph Lenox <lenox@lenneth.engr.siu.edu>  Sun, 22 Feb 2015 12:30:27 -0600
 
