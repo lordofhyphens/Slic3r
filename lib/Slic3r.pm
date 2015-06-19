@@ -70,7 +70,7 @@ use Slic3r::Print::SupportMaterial;
 use Slic3r::Surface;
 our $build = eval "use Slic3r::Build; 1";
 use Thread::Semaphore;
-use Encode::Locale 1.05;
+use Encode::Locale 1.03;
 use Encode;
 use Unicode::Normalize;
 
