@@ -43,6 +43,7 @@ Depends: libboost-geometry-utils-perl,
          libmoo-perl,
          libstorable-perl,
          libtime-hires-perl,
+         freeglut3,
          ${misc:Depends},
          ${perl:Depends},
          ${shlibs:Depends}
