@@ -24,9 +24,12 @@ libfile-spec-perl, libio-stringy-perl, libmath-convexhull-monotonechain-perl,
 libmath-geometry-voronoi-perl, libmath-planepath-perl,
 libmodule-build-withxspp-perl, libmoo-perl, libopengl-perl, libstorable-perl,
 libtime-hires-perl, libwx-perl, libxml-sax-expatxs-perl, perl, xfonts-base,
-xvfb, xauth
+xvfb, xauth, freeglut3-dev
 
 and run "fakeroot debian/rules binary" from the main Slic3r directory on clone.
+
+Debian Package
+https://drive.google.com/folderview?id=0B3aPl7CmzLRvfjBaQmNXNUFlbXlHNHhlLWQxMjQ3X0NjX2p3V3k1LU9EWktkTXNDcWgxeG8&usp=sharing
 
 ### What language is it written in?
 
