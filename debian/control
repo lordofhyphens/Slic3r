@@ -7,7 +7,6 @@ Uploaders: Nicolas Dandrimont <olasd@debian.org>,
 Build-Depends: debhelper (>= 9.20120312),
                help2man,
                libboost-all-dev,
-               libboost-geometry-utils-perl,
                libclass-xsaccessor-perl,
                libencode-locale-perl,
                libextutils-parsexs-perl (>= 3.180004),
@@ -33,8 +32,7 @@ Homepage: http://slic3r.org/
 
 Package: slic3r
 Architecture: any
-Depends: libboost-geometry-utils-perl,
-         libencode-locale-perl,
+Depends: libencode-locale-perl,
          libfile-spec-perl,
          libio-stringy-perl,
          libmath-convexhull-monotonechain-perl,
