@@ -1,12 +1,14 @@
-slic3r (1.2.10-dev-1) UNRELEASED; urgency=medium
+slic3r (1.3.0-git+dfsg-1) UNRELEASED; urgency=medium
 
   * Non-maintainer upload.
   * Upstream change to 1.2.10-dev
   * 
   * 
+  Updates from upstream for -dev version
+  * 
   * 
 
- -- Joseph Lenox <lenox@rufus.engr.siu.edu>  Sun, 08 Nov 2015 13:47:31 -0600
+ -- Joseph Lenox <lenox@rufus.engr.siu.edu>  Sat, 19 Dec 2015 13:21:44 -0600
 
 slic3r (1.2.6-git+dfsg-1) UNRELEASED; urgency=medium
 
