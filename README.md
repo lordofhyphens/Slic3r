@@ -14,7 +14,7 @@ See the [project homepage](http://slic3r.org/) at slic3r.org and the
 [manual](http://manual.slic3r.org/) for more information.
 
 
-This is a partially-Debianized fork of Slic3r, kept up-to-date with upstream. 
+This is a partially-Debianized fork of Slic3r, kept up-to-date with the -stable branch of Slic3r from @alexrj. 
 To build packages, make sure you have the following installed:
 
 debhelper (>= 9.20120312), help2man, fakeroot, libboost-all-dev,
