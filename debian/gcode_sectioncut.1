@@ -1,0 +1,22 @@
+.TH gcode_sectioncut "1" "June 2014" "Slic3r" "User Commands"
+.SH NAME
+gcode_sectioncut \- Generate section cuts from a gcode file
+.SH SYNOPSIS
+.B gcode_sectioncut
+[ \fIOPTIONS \fR] \fIfile.gcode\fR
+.SH DESCRIPTION
+gcode_sectioncut is a script which generate section-cuts in the form of SVG
+files from gcode files.
+.SH OPTIONS
+.TP
+\fB\-\-help\fR
+Output usage screen and exit
+.TP
+\fB\-\-layer\-height\fR, \fB\-h\fR
+Use the specified layer height
+.TP
+\fB\-\-extrusion\-width\fR, \fB\-w\fR
+Use the specified extrusion width
+.TP
+\fB\-\-scale\fR
+Factor for converting G\-code units to SVG units

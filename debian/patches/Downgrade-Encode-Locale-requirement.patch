@@ -1,0 +1,21 @@
+From: Chow Loong Jin <hyperair@debian.org>
+Date: Wed, 17 Jun 2015 21:56:15 +0800
+Subject: Downgrade Encode::Locale requirement
+
+---
+ lib/Slic3r.pm | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lib/Slic3r.pm b/lib/Slic3r.pm
+index ef8274c..26c13a4 100644
+--- a/lib/Slic3r.pm
++++ b/lib/Slic3r.pm
+@@ -71,7 +71,7 @@ use Slic3r::Print::SupportMaterial;
+ use Slic3r::Surface;
+ our $build = eval "use Slic3r::Build; 1";
+ use Thread::Semaphore;
+-use Encode::Locale 1.05;
++use Encode::Locale 1.03;
+ use Encode;
+ use Unicode::Normalize;
+ 

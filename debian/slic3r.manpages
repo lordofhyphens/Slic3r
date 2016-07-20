@@ -1,0 +1,11 @@
+debian/view-mesh.1
+debian/stl-to-amf.1
+debian/split_stl.1
+debian/pdf-slices.1
+debian/gcode_sectioncut.1
+debian/dump-stl.1
+debian/amf-to-stl.1
+debian/slic3r.1
+debian/config-bundle-to-config.1
+debian/view-toolpaths.1
+debian/wireframe.1

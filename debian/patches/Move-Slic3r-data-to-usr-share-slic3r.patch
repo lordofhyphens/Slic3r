@@ -1,0 +1,21 @@
+From: Nicolas Dandrimont <nicolas.dandrimont@crans.org>
+Date: Mon, 28 Oct 2013 10:42:53 +0100
+Subject: Move Slic3r data to /usr/share/slic3r
+
+---
+ lib/Slic3r.pm | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lib/Slic3r.pm b/lib/Slic3r.pm
+index 154af90..ef8274c 100644
+--- a/lib/Slic3r.pm
++++ b/lib/Slic3r.pm
+@@ -30,7 +30,7 @@ warn "Running Slic3r under Perl 5.16 is not supported nor recommended\n"
+     if $^V == v5.16;
+ 
+ use FindBin;
+-our $var = decode_path($FindBin::Bin) . "/var";
++our $var = "/usr/share/slic3r";
+ 
+ use Moo 1.003001;
+ 
