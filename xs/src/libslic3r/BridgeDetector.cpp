@@ -35,7 +35,7 @@ BridgeDetector::BridgeDetector(const ExPolygon &_expolygon, const ExPolygonColle
     
     // detect what edges lie on lower slices by turning bridge contour and holes
     // into polylines and then clipping them with each lower slice's contour
-    intersection(grown, this->lower_slices.contours(), &this->_edges);
+    //intersection(grown, this->lower_slices.contours(), &this->_edges);
     
     #ifdef SLIC3R_DEBUG
     printf("  bridge has %zu support(s)\n", this->_edges.size());
