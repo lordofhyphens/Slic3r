@@ -125,6 +125,8 @@ class PrintObjectConfig : public virtual StaticPrintConfig
     ConfigOptionFloat               support_material_spacing;
     ConfigOptionFloat               support_material_speed;
     ConfigOptionInt                 support_material_threshold;
+    ConfigOptionFloat               support_material_pillar_size;
+    ConfigOptionFloat               support_material_pillar_spacing;
     ConfigOptionFloat               xy_size_compensation;
     
     PrintObjectConfig() : StaticPrintConfig() {
@@ -154,6 +156,8 @@ class PrintObjectConfig : public virtual StaticPrintConfig
         OPT_PTR(support_material_spacing);
         OPT_PTR(support_material_speed);
         OPT_PTR(support_material_threshold);
+        OPT_PTR(support_material_pillar_size);
+        OPT_PTR(support_material_pillar_spacing);
         OPT_PTR(xy_size_compensation);
         
         return NULL;

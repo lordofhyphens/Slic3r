@@ -479,6 +479,7 @@ sub build {
         support_material_pattern support_material_spacing support_material_angle
         support_material_interface_layers support_material_interface_spacing
         support_material_contact_distance dont_support_bridges
+        support_material_pillar_spacing support_material_pillar_size
         notes
         complete_objects extruder_clearance_radius extruder_clearance_height
         gcode_comments output_filename_format
@@ -589,6 +590,8 @@ sub build {
             $optgroup->append_single_option_line('support_material_interface_layers');
             $optgroup->append_single_option_line('support_material_interface_spacing');
             $optgroup->append_single_option_line('dont_support_bridges');
+            $optgroup->append_single_option_line('support_material_pillar_size');
+            $optgroup->append_single_option_line('support_material_pillar_spacing');
         }
     }
     

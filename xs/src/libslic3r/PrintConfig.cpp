@@ -1179,6 +1179,24 @@ PrintConfigDef::PrintConfigDef()
     def->max = 90;
     def->default_value = new ConfigOptionInt(0);
 
+    def = this->add("support_material_pillar_size", coFloat);
+    def->label = "Pillar Support Size";
+    def->category = "Support material";
+    def->tooltip = "Size of interior of tree-like support pillars.";
+    def->sidetext = "mm";
+    def->cli = "support-material-pillar-size=f";
+    def->min = 2.5;
+    def->default_value = new ConfigOptionFloat(2.5);
+
+    def = this->add("support_material_pillar_spacing", coFloat);
+    def->label = "Pillar Support Size";
+    def->category = "Support material";
+    def->tooltip = "Support pillar spacing.";
+    def->sidetext = "mm";
+    def->cli = "support-material-pillar-spacing=f";
+    def->min = 0;
+    def->default_value = new ConfigOptionFloat(10);
+
     def = this->add("temperature", coInts);
     def->label = "Other layers";
     def->tooltip = "Extruder temperature for layers after the first one. Set this to zero to disable temperature control commands in the output.";
