@@ -187,8 +187,6 @@ pp `
 -M base `
 -M bytes `
 -M constant `
--M constant `
--M constant::defer `
 -M enum `
 -M feature `
 -M integer `
