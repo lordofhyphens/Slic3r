@@ -17,7 +17,6 @@ git branch | foreach {
 New-Variable -Name "STRAWBERRY_PATH" -Value "C:\Strawberry"
 
 cpanm "PAR::Packer"
-cpanm "Constant::Defer"
 
 pp `
 -a "../utils;utils"  `
@@ -188,8 +187,6 @@ pp `
 -M base `
 -M bytes `
 -M constant `
--M constant `
--M constant::defer `
 -M enum `
 -M feature `
 -M integer `
@@ -197,17 +194,14 @@ pp `
 -M lib `
 -M mro `
 -M overload `
--M overload::numbers `
 -M overloading `
 -M parent `
 -M re `
 -M strict `
 -M threads `
--M threads::shared `
 -M utf8 `
 -M vars `
 -M warnings `
--M warnings::register `
 -e -p ..\slic3r.pl -o ..\slic3r.par
 
 copy ..\slic3r.par "..\slic3r-${current_branch}-${APPVEYOR_BUILD_NUMBER}-$(git rev-parse --short HEAD).zip"
