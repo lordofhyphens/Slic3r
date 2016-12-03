@@ -17,7 +17,7 @@ git branch | foreach {
 New-Variable -Name "STRAWBERRY_PATH" -Value "C:\Strawberry"
 
 cpanm "PAR::Packer"
-cpanm "AutoLoader"
+cpanm "Constant::Defer"
 
 pp `
 -a "../utils;utils"  `
