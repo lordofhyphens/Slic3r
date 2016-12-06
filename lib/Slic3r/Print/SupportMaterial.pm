@@ -59,6 +59,26 @@ sub generate {
     my ($interface) = $self->generate_interface_layers($support_z, $contact, $top);
     $self->clip_with_object($interface, $support_z, $object);
     $self->clip_with_shape($interface, $shape) if @$shape;
+
+    my $clipobject = $object; 
+    if ($object->region_count > 1) {
+        my $mesh;
+        for my $region_id (0..$object->region_count) {
+            foreach my $volume_id (@{ $object->get_region_volumes($region_id) }) {
+                my $volume = $object->model_object->volumes->[$volume_id];
+                next if !$volume->modifier;
+                print ($volume->config->support_material);
+                next if $volume->config->support_material;
+                if (defined $mesh) {
+                    $mesh->merge($volume->mesh);
+                } else {
+                    $mesh = $volume->mesh->clone;
+                }
+            }
+        }
+    }
+
+    
     
     # Propagate contact layers and interface layers downwards to generate
     # the main support layers.

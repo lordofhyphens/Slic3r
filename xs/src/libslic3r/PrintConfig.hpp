@@ -236,6 +236,7 @@ class PrintRegionConfig : public virtual StaticPrintConfig
     ConfigOptionFloatOrPercent      top_infill_extrusion_width;
     ConfigOptionInt                 top_solid_layers;
     ConfigOptionFloatOrPercent      top_solid_infill_speed;
+    ConfigOptionBool                support_material;
     
     PrintRegionConfig(bool initialize = true) : StaticPrintConfig() {
         if (initialize)
@@ -251,6 +252,7 @@ class PrintRegionConfig : public virtual StaticPrintConfig
         OPT_PTR(external_perimeter_speed);
         OPT_PTR(external_perimeters_first);
         OPT_PTR(extra_perimeters);
+        OPT_PTR(support_material);
         OPT_PTR(fill_angle);
         OPT_PTR(fill_density);
         OPT_PTR(fill_pattern);
