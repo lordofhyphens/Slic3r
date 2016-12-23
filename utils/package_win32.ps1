@@ -187,8 +187,6 @@ pp `
 -M base `
 -M bytes `
 -M constant `
--M constant `
--M constant::defer `
 -M enum `
 -M feature `
 -M integer `
@@ -196,7 +194,6 @@ pp `
 -M lib `
 -M mro `
 -M overload `
--M overload::numbers `
 -M overloading `
 -M parent `
 -M re `
