@@ -23,9 +23,11 @@ use Slic3r::GUI::Plater::3D;
 use Slic3r::GUI::Plater::3DPreview;
 use Slic3r::GUI::Plater::ObjectPartsPanel;
 use Slic3r::GUI::Plater::ObjectCutDialog;
+use Slic3r::GUI::Plater::ObjectLayersDialog;
 use Slic3r::GUI::Plater::ObjectSettingsDialog;
 use Slic3r::GUI::Plater::LambdaObjectDialog;
 use Slic3r::GUI::Plater::OverrideSettingsPanel;
+use Slic3r::GUI::Plater::SplineControl;
 use Slic3r::GUI::Preferences;
 use Slic3r::GUI::ProgressStatusBar;
 use Slic3r::GUI::Projector;
@@ -67,7 +69,7 @@ our $Settings = {
         mode => 'simple',
         version_check => 1,
         autocenter => 1,
-        background_processing => 1,
+        background_processing => 0,
         # If set, the "Controller" tab for the control of the printer over serial line and the serial port settings are hidden.
         # By default, Prusa has the controller hidden.
         no_controller => 1,

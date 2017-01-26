@@ -9,7 +9,8 @@ namespace Slic3r {
 PrintObject::PrintObject(Print* print, ModelObject* model_object, const BoundingBoxf3 &modobj_bbox)
 :   typed_slices(false),
     _print(print),
-    _model_object(model_object)
+    _model_object(model_object),
+    layer_height_spline(modobj_bbox.size().z)
 {
     // Compute the translation to be applied to our meshes so that we work with smaller coordinates
     {
@@ -239,9 +240,14 @@ PrintObject::invalidate_state_by_config_options(const std::vector<t_config_optio
             || *opt_key == "external_perimeters_first") {
             steps.insert(posPerimeters);
         } else if (*opt_key == "layer_height"
+			|| *opt_key == "min_layer_height"
+            || *opt_key == "max_layer_height"
             || *opt_key == "first_layer_height"
             || *opt_key == "xy_size_compensation"
-            || *opt_key == "raft_layers") {
+            || *opt_key == "adaptive_slicing"
+        	|| *opt_key == "cusp_value"
+        	|| *opt_key == "match_horizontal_surfaces"
+        	|| *opt_key == "raft_layers") {
             steps.insert(posSlice);
         } else if (*opt_key == "support_material"
             || *opt_key == "support_material_angle"
