@@ -139,12 +139,15 @@ class StaticPrintConfig : public PrintConfigBase, public StaticConfig
 class PrintObjectConfig : public virtual StaticPrintConfig
 {
     public:
+	ConfigOptionBool                adaptive_slicing;
+	ConfigOptionFloat               cusp_value;
     ConfigOptionBool                dont_support_bridges;
     ConfigOptionFloatOrPercent      extrusion_width;
     ConfigOptionFloatOrPercent      first_layer_height;
     ConfigOptionBool                infill_only_where_needed;
     ConfigOptionBool                interface_shells;
     ConfigOptionFloat               layer_height;
+    ConfigOptionBool                match_horizontal_surfaces;
     ConfigOptionInt                 raft_layers;
     ConfigOptionEnum<SeamPosition>  seam_position;
     ConfigOptionBool                support_material;
@@ -169,12 +172,15 @@ class PrintObjectConfig : public virtual StaticPrintConfig
     }
     
     virtual ConfigOption* optptr(const t_config_option_key &opt_key, bool create = false) {
+        OPT_PTR(adaptive_slicing);
+        OPT_PTR(cusp_value);
         OPT_PTR(dont_support_bridges);
         OPT_PTR(extrusion_width);
         OPT_PTR(first_layer_height);
         OPT_PTR(infill_only_where_needed);
         OPT_PTR(interface_shells);
         OPT_PTR(layer_height);
+        OPT_PTR(match_horizontal_surfaces);
         OPT_PTR(raft_layers);
         OPT_PTR(seam_position);
         OPT_PTR(support_material);
@@ -389,7 +395,9 @@ class PrintConfig : public GCodeConfig
     ConfigOptionFloat               infill_acceleration;
     ConfigOptionBool                infill_first;
     ConfigOptionInt                 max_fan_speed;
+    ConfigOptionFloats              max_layer_height;
     ConfigOptionInt                 min_fan_speed;
+    ConfigOptionFloats              min_layer_height;
     ConfigOptionFloat               min_print_speed;
     ConfigOptionFloat               min_skirt_length;
     ConfigOptionString              notes;
@@ -449,7 +457,9 @@ class PrintConfig : public GCodeConfig
         OPT_PTR(infill_acceleration);
         OPT_PTR(infill_first);
         OPT_PTR(max_fan_speed);
+        OPT_PTR(max_layer_height);
         OPT_PTR(min_fan_speed);
+        OPT_PTR(min_layer_height);
         OPT_PTR(min_print_speed);
         OPT_PTR(min_skirt_length);
         OPT_PTR(notes);

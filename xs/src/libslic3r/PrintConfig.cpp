@@ -6,6 +6,12 @@ namespace Slic3r {
 PrintConfigDef::PrintConfigDef()
 {
     ConfigOptionDef* def;
+
+    def = this->add("adaptive_slicing", coBool);
+    def->label = "Use adaptive slicing";
+    def->tooltip = "Automatically determine layer heights by the objects topology instead of using the static value.";
+    def->cli = "adaptive-slicing!";
+    def->default_value = new ConfigOptionBool(false);
     
     def = this->add("avoid_crossing_perimeters", coBool);
     def->label = "Avoid crossing perimeters";
@@ -118,6 +124,15 @@ PrintConfigDef::PrintConfigDef()
     def->tooltip = "This flag enables the automatic cooling logic that adjusts print speed and fan speed according to layer printing time.";
     def->cli = "cooling!";
     def->default_value = new ConfigOptionBool(true);
+
+    def = this->add("cusp_value", coFloat);
+    def->label = "Cusp value";
+    def->tooltip = "This value determines the maximum deviaton from the objects original surface caused by the stair-stepping effect (approximation of the surface by discrete layers). Use a value between 0 (highest possible resolution) and [max_layer_height] (lowest possible resolution). Typical values are 0.1 - 0.2.";
+    def->sidetext = "mm";
+    def->cli = "cusp_value=f";
+    def->min = 0;
+    def->max = 1;
+    def->default_value = new ConfigOptionFloat(0.15);
 
     def = this->add("default_acceleration", coFloat);
     def->label = "Default";
@@ -619,6 +634,12 @@ PrintConfigDef::PrintConfigDef()
     def->min = 0;
     def->default_value = new ConfigOptionFloat(0.3);
 
+    def = this->add("match_horizontal_surfaces", coBool);
+    def->label = "Match horizontal surfaces";
+    def->tooltip = "Try to match horizontal surfaces during the slicing process. Matching is not guaranteed, very small surfaces and multiple surfaces with low vertical distance might cause bad results.";
+    def->cli = "match-horizontal-surfaces!";
+    def->default_value = new ConfigOptionBool(true);
+
     def = this->add("max_fan_speed", coInt);
     def->label = "Max";
     def->tooltip = "This setting represents the maximum speed of your fan.";
@@ -627,6 +648,18 @@ PrintConfigDef::PrintConfigDef()
     def->min = 0;
     def->max = 100;
     def->default_value = new ConfigOptionInt(100);
+
+    def = this->add("max_layer_height", coFloats);
+	def->label = "Max";
+	def->tooltip = "This is the highest printable layer height for this extruder and limits the resolution for adaptive slicing. Typical values are slightly smaller than nozzle_diameter.";
+	def->sidetext = "mm";
+	def->cli = "max-layer-height=f@";
+	def->min = 0;
+	{
+		ConfigOptionFloats* opt = new ConfigOptionFloats();
+		opt->values.push_back(0.3);
+		def->default_value = opt;
+	}
 
     def = this->add("max_print_speed", coFloat);
     def->label = "Max print speed";
@@ -652,6 +685,18 @@ PrintConfigDef::PrintConfigDef()
     def->min = 0;
     def->max = 100;
     def->default_value = new ConfigOptionInt(35);
+
+    def = this->add("min_layer_height", coFloats);
+	def->label = "Min";
+	def->tooltip = "This is the lowest printable layer height for this extruder and limits the resolution for adaptive slicing. Typical values are 0.1 or 0.05.";
+	def->sidetext = "mm";
+	def->cli = "min-layer-height=f@";
+	def->min = 0;
+	{
+		ConfigOptionFloats* opt = new ConfigOptionFloats();
+		opt->values.push_back(0.15);
+		def->default_value = opt;
+	}
 
     def = this->add("min_print_speed", coFloat);
     def->label = "Min print speed";
