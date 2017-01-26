@@ -461,6 +461,7 @@ sub build {
     my $self = shift;
     
     $self->init_config_options(qw(
+    	adaptive_slicing adaptive_slicing_z_gradation cusp_value match_horizontal_surfaces
         layer_height first_layer_height
         perimeters spiral_vase
         top_solid_layers bottom_solid_layers
@@ -507,6 +508,10 @@ sub build {
             my $optgroup = $page->new_optgroup('Layer height');
             $optgroup->append_single_option_line('layer_height');
             $optgroup->append_single_option_line('first_layer_height');
+            $optgroup->append_single_option_line('adaptive_slicing');
+            $optgroup->append_single_option_line('cusp_value');
+            $optgroup->append_single_option_line('adaptive_slicing_z_gradation');
+            $optgroup->append_single_option_line('match_horizontal_surfaces');
         }
         {
             my $optgroup = $page->new_optgroup('Vertical shells');
@@ -819,6 +824,12 @@ sub _update {
         for qw(extra_perimeters thin_walls overhangs seam_position external_perimeters_first
             external_perimeter_extrusion_width
             perimeter_speed small_perimeter_speed external_perimeter_speed);
+
+    my $have_adaptive_slicing = $config->adaptive_slicing;
+    $self->get_field($_)->toggle($have_adaptive_slicing)
+        for qw(cusp_value adaptive_slicing_z_gradation match_horizontal_surfaces);
+    $self->get_field($_)->toggle(!$have_adaptive_slicing)
+        for qw(layer_height);
     
     my $have_infill = $config->fill_density > 0;
     # infill_extruder uses the same logic as in Print::extruders()
@@ -1330,7 +1341,7 @@ sub _extruders_count_changed {
     $self->_update;
 }
 
-sub _extruder_options { qw(nozzle_diameter extruder_offset retract_length retract_lift retract_lift_above retract_lift_below retract_speed retract_restart_extra retract_before_travel wipe
+sub _extruder_options { qw(nozzle_diameter min_layer_height max_layer_height extruder_offset retract_length retract_lift retract_lift_above retract_lift_below retract_speed retract_restart_extra retract_before_travel wipe
     retract_layer_change retract_length_toolchange retract_restart_extra_toolchange) }
 
 sub _build_extruder_pages {
@@ -1358,6 +1369,11 @@ sub _build_extruder_pages {
         {
             my $optgroup = $page->new_optgroup('Size');
             $optgroup->append_single_option_line('nozzle_diameter', $extruder_idx);
+        }
+        {
+            my $optgroup = $page->new_optgroup('Limits');
+            $optgroup->append_single_option_line($_, $extruder_idx)
+            	for qw(min_layer_height max_layer_height);
         }
         {
             my $optgroup = $page->new_optgroup('Position (for multi-extruder printers)');
