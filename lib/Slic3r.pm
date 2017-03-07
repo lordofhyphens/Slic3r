@@ -53,9 +53,6 @@ use Slic3r::ExPolygon;
 use Slic3r::ExtrusionLoop;
 use Slic3r::ExtrusionPath;
 use Slic3r::Flow;
-use Slic3r::Format::AMF;
-use Slic3r::Format::OBJ;
-use Slic3r::Format::STL;
 use Slic3r::GCode::ArcFitting;
 use Slic3r::GCode::MotionPlanner;
 use Slic3r::GCode::PressureRegulator;
@@ -226,6 +223,7 @@ sub thread_cleanup {
     *Slic3r::Geometry::BoundingBoxf::DESTROY = sub {};
     *Slic3r::Geometry::BoundingBoxf3::DESTROY = sub {};
     *Slic3r::Layer::PerimeterGenerator::DESTROY = sub {};
+    *Slic3r::LayerHeightSpline::DESTROY     = sub {};
     *Slic3r::Line::DESTROY                  = sub {};
     *Slic3r::Linef3::DESTROY                = sub {};
     *Slic3r::Model::DESTROY                 = sub {};

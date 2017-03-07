@@ -2,7 +2,17 @@ package Slic3r::AdaptiveSlicing;
 use Moo;
 
 use List::Util qw(min max);
+use Math::Trig qw(asin acos deg2rad rad2deg);
 use Slic3r::Geometry qw(X Y Z triangle_normal scale unscale);
+
+# This constant essentially describes the volumetric error at the surface which is induced
+# by stacking "elliptic" extrusion threads.
+# It is empirically determined by
+# 1. measuring the surface profile of printed parts to find
+# the ratio between layer height and profile height and then
+# 2. computing the geometric difference between the model-surface and the elliptic profile.
+# [Link to detailed description follows]
+use constant SURFACE_CONST => 0.18403;
 
 # public
 has 'mesh' => (is => 'ro', required => 1);
@@ -32,7 +42,9 @@ sub BUILD {
 		if($normal_length > 0) {
 			$self->normal_z->[$facet_id] = $normal->[Z]/$normal_length;
 		}else{  # facet with area = 0
-			$self->normal_z->[$facet_id] = [0 ,0 ,0];
+			$self->normal_z->[$facet_id] = 0.01;#[0 ,0 ,0];
+			#print "facet with normal 0. p1: " . $vertices->[$facets->[$facet_id]->[0]]->[Z] . " p2: " . $vertices->[$facets->[$facet_id]->[1]]->[Z] . " p3: " . $vertices->[$facets->[$facet_id]->[2]]->[Z] . "\n";
+			#print "normal: " . $normal->[0] . ", " . $normal->[1] . ", " . $normal->[2] . "\n";
 		}
     }
     
@@ -52,103 +64,116 @@ sub BUILD {
 	for (my $i = 0; $i <= $#sort_facets; $i++) {
 		$self->ordered_facets->[$i] = $sort_facets[$i];
 	} 
-	# initialize pointer for cusp_height run
+	# initialize pointer to iterate over the object
 	$self->current_facet(0);
 }
 
 
-sub cusp_height {
-	my $self = shift;
-	my ($z, $cusp_value, $min_height, $max_height) = @_;
-	
-	my $height = $max_height;
-	my $first_hit = 0;
-	
-	# find all facets intersecting the slice-layer
-	my $ordered_id = $self->current_facet;
-	while ($ordered_id <= $#{$self->ordered_facets}) {
-		
-		# facet's minimum is higher than slice_z -> end loop
-		if($self->ordered_facets->[$ordered_id]->[1] >= $z) {
-			last;
-		}
-		
-		# facet's maximum is higher than slice_z -> store the first event for next cusp_height call to begin at this point
-		if($self->ordered_facets->[$ordered_id]->[2] > $z) {
-			# first event?
-			if(!$first_hit) {
-				$first_hit = 1;
-				$self->current_facet($ordered_id);
-			} 
-			
-			#skip touching facets which could otherwise cause small cusp values
-			if($self->ordered_facets->[$ordered_id]->[2] <= $z+1)
-			{
-				$ordered_id++;
-				next;
-			}
-			
-			# compute cusp-height for this facet and store minimum of all heights
-			my $cusp = $self->_facet_cusp_height($ordered_id, $cusp_value);
-			$height = $cusp if($cusp < $height);			
-		}
-		$ordered_id++;
-	}
-	# lower height limit due to printer capabilities
-	$height = $min_height if($height < $min_height);
-	
-	
-	# check for sloped facets inside the determined layer and correct height if necessary
-	if($height > $min_height){
-		while ($ordered_id <= $#{$self->ordered_facets}) {
-			
-			# facet's minimum is higher than slice_z + height -> end loop
-			if($self->ordered_facets->[$ordered_id]->[1] >= ($z + scale $height)) {
-				last;
-			}
-			
-			#skip touching facets which could otherwise cause small cusp values
-			if($self->ordered_facets->[$ordered_id]->[2] <= $z+1)
-			{
-				$ordered_id++;
-				next;
-			}
-			
-			# Compute cusp-height for this facet and check against height.
-			my $cusp = $self->_facet_cusp_height($ordered_id, $cusp_value);
-			
-			my $z_diff = unscale ($self->ordered_facets->[$ordered_id]->[1] - $z);
+# find height of the next layer by analyzing the angle of all facets intersecting the new layer
+sub next_layer_height {
+    my $self = shift;
+    my ($z, $quality_factor, $min_height, $max_height) = @_;
+    
+    # factor must be between 0-1, 0 is highest quality, 1 highest print speed
+    if($quality_factor < 0 or $quality_factor > 1) {
+        die "Speed / Quality factor must be in the interval [0:1]";
+    }
+
+    my $delta_min = SURFACE_CONST * $min_height;
+    my $delta_max = SURFACE_CONST * $max_height + 0.5*$max_height;
+    
+    my $scaled_quality_factor = $quality_factor * ($delta_max-$delta_min) + $delta_min;
+    
+    my $height = $max_height;
+    my $first_hit = 0;
+    
+    # find all facets intersecting the slice-layer
+    my $ordered_id = $self->current_facet;
+    while ($ordered_id <= $#{$self->ordered_facets}) {
+        
+        # facet's minimum is higher than slice_z -> end loop
+        if($self->ordered_facets->[$ordered_id]->[1] >= $z) {
+            last;
+        }
+        
+        # facet's maximum is higher than slice_z -> store the first event for next layer_height call to begin at this point
+        if($self->ordered_facets->[$ordered_id]->[2] > $z) {
+            # first event?
+            if(!$first_hit) {
+                $first_hit = 1;
+                $self->current_facet($ordered_id);
+            } 
+            
+            #skip touching facets which could otherwise cause small height values
+            if($self->ordered_facets->[$ordered_id]->[2] <= $z+1)
+            {
+                $ordered_id++;
+                next;
+            }
+            
+            # compute layer-height for this facet and store minimum of all heights
+            $height = min($height, $self->_facet_height($ordered_id, $scaled_quality_factor));
+        }
+        $ordered_id++;
+    }
+    # lower height limit due to printer capabilities
+    $height = max($min_height, $height);
+    
+    
+    # check for sloped facets inside the determined layer and correct height if necessary
+    if($height > $min_height){
+        while ($ordered_id <= $#{$self->ordered_facets}) {
+            
+            # facet's minimum is higher than slice_z + height -> end loop
+            if($self->ordered_facets->[$ordered_id]->[1] >= ($z + scale $height)) {
+                last;
+            }
+            
+            #skip touching facets which could otherwise cause small height values
+            if($self->ordered_facets->[$ordered_id]->[2] <= $z+1)
+            {
+                $ordered_id++;
+                next;
+            }
+            
+            # Compute new height for this facet and check against height.
+            my $reduced_height = $self->_facet_height($ordered_id, $scaled_quality_factor);
+            #$area_h = max($min_height, min($max_height, $area_h));
+            
+            my $z_diff = unscale ($self->ordered_facets->[$ordered_id]->[1] - $z);
 
 
-			# handle horizontal facets
-			if ($self->normal_z->[$self->ordered_facets->[$ordered_id]->[0]] > 0.999) {
-				Slic3r::debugf "cusp computation, height is reduced from %f", $height;
-				$height = $z_diff;
-				Slic3r::debugf "to %f due to near horizontal facet\n", $height;
-			}else{
-				if( $cusp > $z_diff) {
-					if($cusp < $height) {
-						Slic3r::debugf "cusp computation, height is reduced from %f", $height;
-						$height = $cusp;
-						Slic3r::debugf "to %f due to new cusp height\n", $height;
-					}
-				}else{
-					Slic3r::debugf "cusp computation, height is reduced from %f", $height;
-					$height = $z_diff;
-					Slic3r::debugf "to z-diff: %f\n", $height;
-				}
-			}
-			
-			$ordered_id++;	
-		}
-		# lower height limit due to printer capabilities again
-		$height = $min_height if($height < $min_height);
-	}
-	
-	Slic3r::debugf "cusp computation, layer-bottom at z:%f, cusp_value:%f, resulting layer height:%f\n", unscale $z, $cusp_value, $height;
-	
-	return $height; 
+#           # handle horizontal facets
+#           if ($self->normal_z->[$self->ordered_facets->[$ordered_id]->[0]] > 0.999) {
+#               Slic3r::debugf "cusp computation, height is reduced from %f", $height;
+#               $height = $z_diff;
+#               Slic3r::debugf "to %f due to near horizontal facet\n", $height;
+#           }else{
+            if( $reduced_height > $z_diff) {
+                if($reduced_height < $height) {
+                    Slic3r::debugf "adaptive layer computation: height is reduced from %f", $height;
+                    $height = $reduced_height;
+                    Slic3r::debugf "to %f due to higher facet\n", $height;
+                }
+            }else{
+                Slic3r::debugf "adaptive layer computation: height is reduced from %f", $height;
+                $height = $z_diff;
+                Slic3r::debugf "to z-diff: %f\n", $height;
+            }
+#           }
+            
+            $ordered_id++;  
+        }
+        # lower height limit due to printer capabilities again
+        $height = max($min_height, $height);
+    }
+    
+    Slic3r::debugf "adaptive layer computation, layer-bottom at z:%f, quality_factor:%f, resulting layer height:%f\n", unscale $z, $quality_factor, $height;
+    
+    return $height; 
 }
+
+
 
 # computes the cusp height from a given facets normal and the cusp_value
 sub _facet_cusp_height {
@@ -158,6 +183,15 @@ sub _facet_cusp_height {
 	my $normal_z = $self->normal_z->[$self->ordered_facets->[$ordered_id]->[0]];
 	my $cusp = ($normal_z == 0) ? 9999 : abs($cusp_value/$normal_z);
 	return $cusp;
+}
+
+
+sub _facet_height {
+	my ($self, $ordered_id, $scaled_quality_factor) = @_;
+	
+	my $normal_z = abs($self->normal_z->[$self->ordered_facets->[$ordered_id]->[0]]);
+    my $height = $scaled_quality_factor/(SURFACE_CONST + $normal_z/2);
+    return ($normal_z == 0) ? 9999 : $height;
 }
 
 # Returns the distance to the next horizontal facet in Z-dir 

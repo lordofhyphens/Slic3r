@@ -41,7 +41,7 @@ enum SupportMaterialPattern {
 };
 
 enum SeamPosition {
-    spRandom, spNearest, spAligned
+    spRandom, spNearest, spAligned, spRear
 };
 
 template<> inline t_config_enum_values ConfigOptionEnum<GCodeFlavor>::get_enum_values() {
@@ -89,6 +89,7 @@ template<> inline t_config_enum_values ConfigOptionEnum<SeamPosition>::get_enum_
     keys_map["random"]              = spRandom;
     keys_map["nearest"]             = spNearest;
     keys_map["aligned"]             = spAligned;
+    keys_map["rear"]                = spRear;
     return keys_map;
 }
 
@@ -140,7 +141,8 @@ class PrintObjectConfig : public virtual StaticPrintConfig
 {
     public:
 	ConfigOptionBool                adaptive_slicing;
-	ConfigOptionFloat               cusp_value;
+	ConfigOptionFloat               adaptive_slicing_z_gradation;
+	ConfigOptionFloat               adaptive_slicing_quality;
     ConfigOptionBool                dont_support_bridges;
     ConfigOptionFloatOrPercent      extrusion_width;
     ConfigOptionFloatOrPercent      first_layer_height;
@@ -173,7 +175,8 @@ class PrintObjectConfig : public virtual StaticPrintConfig
     
     virtual ConfigOption* optptr(const t_config_option_key &opt_key, bool create = false) {
         OPT_PTR(adaptive_slicing);
-        OPT_PTR(cusp_value);
+        OPT_PTR(adaptive_slicing_z_gradation);
+        OPT_PTR(adaptive_slicing_quality);
         OPT_PTR(dont_support_bridges);
         OPT_PTR(extrusion_width);
         OPT_PTR(first_layer_height);
@@ -217,6 +220,7 @@ class PrintRegionConfig : public virtual StaticPrintConfig
     ConfigOptionBool                extra_perimeters;
     ConfigOptionFloat               fill_angle;
     ConfigOptionPercent             fill_density;
+    ConfigOptionBool                fill_gaps;
     ConfigOptionEnum<InfillPattern> fill_pattern;
     ConfigOptionFloat               gap_fill_speed;
     ConfigOptionInt                 infill_extruder;
@@ -256,6 +260,7 @@ class PrintRegionConfig : public virtual StaticPrintConfig
         OPT_PTR(extra_perimeters);
         OPT_PTR(fill_angle);
         OPT_PTR(fill_density);
+        OPT_PTR(fill_gaps);
         OPT_PTR(fill_pattern);
         OPT_PTR(gap_fill_speed);
         OPT_PTR(infill_extruder);

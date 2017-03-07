@@ -103,16 +103,25 @@ sub slice {
 
 		my $slice_z = 0;
         my $height  = 0;
-		my $cusp_height = 0;
+		my $adaptive_height = 0;
 		my @layers = ();
+		
+		# determine min and max layer height from extruder capabilities.
+	    my %extruders;
+	    for my $region_id (0 .. ($self->region_count - 1)) {
+	        foreach (qw(perimeter_extruder infill_extruder solid_infill_extruder)) {
+	            my $extruder_id = $self->print->get_region($region_id)->config->get($_)-1;
+	            $extruders{$extruder_id} = $extruder_id;
+	        }
+	    }
+	    my $min_height = max(map {$self->print->config->get_at('min_layer_height', $_)} (values %extruders));
+	    my $max_height = min(map {$self->print->config->get_at('max_layer_height', $_)} (values %extruders));
 
 		if(!$self->layer_height_spline->updateRequired) { # layer heights are already generated, just update layers from spline
 		    @layers = @{$self->layer_height_spline->getInterpolatedLayers};
 		}else{ # create new set of layers
 	        # create stateful objects and variables for the adaptive slicing process
 	        my @adaptive_slicing;
-	        my $min_height = 0;
-			my $max_height = 0;
 	        if ($self->config->adaptive_slicing) {
 		        for my $region_id (0 .. ($self->region_count - 1)) {
 		            my $mesh;
@@ -133,16 +142,6 @@ sub slice {
                         );
                     }
                 }
-
-				# determine min and max layer height from perimeter extruder capabilities.
-				if($self->region_count > 1) { # multimaterial object
-					$min_height = max(map {$self->print->config->get_at('min_layer_height', $_)} (0..($self->region_count-1)));
-					$max_height = min(map {$self->print->config->get_at('max_layer_height', $_)} (0..($self->region_count-1)));
-				}else{ #single material object
-					my $perimeter_extruder = $self->print->get_region(0)->config->get('perimeter_extruder')-1;
-					$min_height = $self->print->config->get_at('min_layer_height', $perimeter_extruder);
-					$max_height = $self->print->config->get_at('max_layer_height', $perimeter_extruder);
-				}
 	        }
 
             # loop until we have at least one layer and the max slice_z reaches the object height
@@ -151,7 +150,11 @@ sub slice {
 
                 if ($self->config->adaptive_slicing) {
                     $height = 999;
-                    my $cusp_value = $self->config->get_value('cusp_value');
+                    my $adaptive_quality = $self->config->get_value('adaptive_slicing_quality');
+                    if($self->layer_height_spline->getCuspValue >= 0) {
+                        $self->config->set('adaptive_slicing_quality', $self->layer_height_spline->getCuspValue);
+                        $adaptive_quality = $self->layer_height_spline->getCuspValue;
+                    }
 
                     Slic3r::debugf "\n Slice layer: %d\n", $id;
 
@@ -159,29 +162,29 @@ sub slice {
                        for my $region_id (0 .. ($self->region_count - 1)) {
                            # get cusp height
                            next if(!defined $adaptive_slicing[$region_id]);
-                           my $cusp_height = $adaptive_slicing[$region_id]->cusp_height(scale $slice_z, $cusp_value, $min_height, $max_height);
+                           my $adaptive_height = $adaptive_slicing[$region_id]->next_layer_height(scale $slice_z, $adaptive_quality, $min_height, $max_height);
 
                            # check for horizontal features and object size
                            if($self->config->get_value('match_horizontal_surfaces')) {
-                               my $horizontal_dist = $adaptive_slicing[$region_id]->horizontal_facet_distance(scale $slice_z+$cusp_height, $min_height);
+                               my $horizontal_dist = $adaptive_slicing[$region_id]->horizontal_facet_distance(scale $slice_z+$adaptive_height, $min_height);
                                if(($horizontal_dist < $min_height) && ($horizontal_dist > 0)) {
                                    Slic3r::debugf "Horizontal feature ahead, distance: %f\n", $horizontal_dist;
                                    # can we shrink the current layer a bit?
-                                   if($cusp_height-($min_height-$horizontal_dist) > $min_height) {
+                                   if($adaptive_height-($min_height-$horizontal_dist) > $min_height) {
                                        # yes we can
-                                       $cusp_height = $cusp_height-($min_height-$horizontal_dist);
-                                       Slic3r::debugf "Shrink layer height to %f\n", $cusp_height;
+                                       $adaptive_height = $adaptive_height-($min_height-$horizontal_dist);
+                                       Slic3r::debugf "Shrink layer height to %f\n", $adaptive_height;
                                    }else{
                                        # no, current layer would become too thin
-                                       $cusp_height = $cusp_height+$horizontal_dist;
-                                       Slic3r::debugf "Widen layer height to %f\n", $cusp_height;
+                                       $adaptive_height = $adaptive_height+$horizontal_dist;
+                                       Slic3r::debugf "Widen layer height to %f\n", $adaptive_height;
                                    }
                                }
                            }
 
                            $height = ($id == 0)
                             ? $self->config->get_value('first_layer_height')
-                            : min($cusp_height, $height);
+                            : min($adaptive_height, $height);
                        }
 
                 }else{
@@ -227,8 +230,21 @@ sub slice {
         
         # generate layer objects
         $slice_z = 0;
+        my $gradation = $self->config->get_value('adaptive_slicing_z_gradation');
         foreach my $z (@layers) {
             $height = $z - $slice_z;
+
+	        # apply z-gradation
+	        if($gradation > 0) {
+	        	my $gradation_effect = unscale((scale($height)) % (scale($gradation)));
+	        	if($gradation_effect > $gradation/2 && ($height + ($gradation-$gradation_effect)) <= $max_height) { # round up
+	        		$height = $height + ($gradation-$gradation_effect);
+	        	}else{ # round down 
+	        		$height = $height - $gradation_effect;
+	        	}
+	            #$height = $height - unscale((scale($height)) % (scale($gradation)));
+	        }
+
             $print_z += $height;
             $slice_z += $height/2;
 
@@ -241,7 +257,7 @@ sub slice {
                 $self->get_layer($lc - 1)->set_lower_layer($self->get_layer($lc - 2));
             }
 
-            $id++;
+            $id++;       
             $slice_z += $height/2;   # add the other half layer
         }
     }
