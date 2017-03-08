@@ -590,15 +590,11 @@ GCode::_extrude(ExtrusionPath path, std::string description, double speed)
         for (Lines::const_iterator line = lines.begin(); line != lines.end(); ++line) {
             const double line_length = line->length() * SCALING_FACTOR;
             path_length += line_length;
-			if (this->writer.extruder()->is_constant_rate())
-				gcode += this->writer.extruder()->start_extrusion_gcode() + ";\n";
             gcode += this->writer.extrude_to_xy(
                 this->point_to_gcode(line->b),
                 e_per_mm * line_length,
                 comment
             );
-			if (this->writer.extruder()->is_constant_rate())
-				gcode += this->writer.extruder()->stop_extrusion_gcode() + ";\n";
         }
     }
     if (this->wipe.enable) {
@@ -654,10 +650,17 @@ GCode::travel_to(const Point &point, ExtrusionRole role, std::string comment)
     std::string gcode;
     if (needs_retraction) gcode += this->retract();
     
+    if (this->writer.extruder()->is_constant_rate())
+        // turn the pump off
+        gcode += this->writer.extruder()->stop_extrusion_gcode() + ";\n";
     // use G1 because we rely on paths being straight (G0 may make round paths)
     Lines lines = travel.lines();
     for (Lines::const_iterator line = lines.begin(); line != lines.end(); ++line)
         gcode += this->writer.travel_to_xy(this->point_to_gcode(line->b), comment);
+	
+    if (this->writer.extruder()->is_constant_rate())
+        // turn the pump back on
+        gcode += this->writer.extruder()->start_extrusion_gcode() + ";\n";
     
     /*  While this makes the estimate more accurate, CoolingBuffer calculates the slowdown
         factor on the whole elapsed time but only alters non-travel moves, thus the resulting
@@ -673,6 +676,9 @@ GCode::travel_to(const Point &point, ExtrusionRole role, std::string comment)
 bool
 GCode::needs_retraction(const Polyline &travel, ExtrusionRole role)
 {
+
+	if (this->writer.extruder()->is_constant_rate())
+        return false; // Never retract for constant extruders.
     if (travel.length() < scale_(EXTRUDER_CONFIG(retract_before_travel))) {
         // skip retraction if the move is shorter than the configured threshold
         return false;
