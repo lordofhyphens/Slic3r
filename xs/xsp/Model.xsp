@@ -2,6 +2,7 @@
 
 %{
 #include <xsinit.h>
+#include "libslic3r/IO.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/PrintConfig.hpp"
 %}
@@ -9,9 +10,32 @@
 %name{Slic3r::Model} class Model {
     Model();
     ~Model();
+    
+    %name{read_from_file} Model(std::string input_file)
+        %code%{
+            try {
+                RETVAL = new Model(Model::read_from_file(input_file));
+            } catch (std::exception& e) {
+                croak("Error while opening %s: %s\n", input_file.c_str(), e.what());
+            }
+        %};
 
     Clone<Model> clone()
         %code%{ RETVAL = THIS; %};
+    
+    bool read_stl(std::string input_file)
+        %code%{ RETVAL = Slic3r::IO::STL::read(input_file, THIS); %};
+    bool read_obj(std::string input_file)
+        %code%{ RETVAL = Slic3r::IO::OBJ::read(input_file, THIS); %};
+    bool read_amf(std::string input_file)
+        %code%{ RETVAL = Slic3r::IO::AMF::read(input_file, THIS); %};
+    
+    bool write_stl(std::string output_file, bool binary = false)
+        %code%{ RETVAL = Slic3r::IO::STL::write(*THIS, output_file, binary); %};
+    bool write_obj(std::string output_file)
+        %code%{ RETVAL = Slic3r::IO::OBJ::write(*THIS, output_file); %};
+    bool write_amf(std::string output_file)
+        %code%{ RETVAL = Slic3r::IO::AMF::write(*THIS, output_file); %};
     
     %name{_add_object} Ref<ModelObject> add_object();
     Ref<ModelObject> _add_object_clone(ModelObject* other, bool copy_volumes = true)
@@ -71,6 +95,8 @@
     void duplicate_objects(unsigned int copies_num, double dist, BoundingBoxf* bb = NULL);
     void duplicate_objects_grid(unsigned int x, unsigned int y, double dist);
     void print_info();
+    bool looks_like_multipart_object();
+    void convert_multipart_object();
     void repair();
 };
 
@@ -183,6 +209,7 @@ ModelMaterial::attributes()
     bool needed_repair() const;
     int materials_count() const;
     int facets_count();
+    void align_to_ground();
     void center_around_origin();
     void translate(double x, double y, double z);
     void scale_xyz(Pointf3* versor)
@@ -221,6 +248,15 @@ ModelMaterial::attributes()
     void set_material_id(t_model_material_id material_id)
         %code%{ THIS->material_id(material_id); %};
     Ref<ModelMaterial> material();
+
+    Clone<BoundingBoxf3> bounding_box()
+        %code%{
+            try {
+                RETVAL = THIS->mesh.bounding_box();
+            } catch (std::exception& e) {
+                croak("%s", e.what());
+            }
+        %};
     
     Ref<DynamicPrintConfig> config()
         %code%{ RETVAL = &THIS->config; %};

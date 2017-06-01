@@ -14,6 +14,7 @@ has '_skirt_done'                    => (is => 'rw', default => sub { {} });  # 
 has '_brim_done'                     => (is => 'rw');
 has '_second_layer_things_done'      => (is => 'rw');
 has '_last_obj_copy'                 => (is => 'rw');
+has '_autospeed'                     => (is => 'rw', default => sub { 0 });   # boolean
 
 use List::Util qw(first sum min max);
 use Slic3r::ExtrusionPath ':roles';
@@ -43,64 +44,11 @@ sub BUILD {
         $gcodegen->set_enable_cooling_markers(1);
         $gcodegen->apply_print_config($self->config);
         $gcodegen->set_extruders($self->print->extruders);
-        
-        # initialize autospeed
-        {
-            # get the minimum cross-section used in the print
-            my @mm3_per_mm = ();
-            foreach my $object (@{$self->print->objects}) {
-                foreach my $region_id (0..$#{$self->print->regions}) {
-                    my $region = $self->print->get_region($region_id);
-                    foreach my $layer (@{$object->layers}) {
-                        my $layerm = $layer->get_region($region_id);
-                        if ($region->config->get_abs_value('perimeter_speed') == 0
-                            || $region->config->get_abs_value('small_perimeter_speed') == 0
-                            || $region->config->get_abs_value('external_perimeter_speed') == 0
-                            || $region->config->get_abs_value('bridge_speed') == 0) {
-                            push @mm3_per_mm, $layerm->perimeters->min_mm3_per_mm;
-                        }
-                        if ($region->config->get_abs_value('infill_speed') == 0
-                            || $region->config->get_abs_value('solid_infill_speed') == 0
-                            || $region->config->get_abs_value('top_solid_infill_speed') == 0
-                            || $region->config->get_abs_value('bridge_speed') == 0) {
-                            push @mm3_per_mm, $layerm->fills->min_mm3_per_mm;
-                        }
-                    }
-                }
-                if ($object->config->get_abs_value('support_material_speed') == 0
-                    || $object->config->get_abs_value('support_material_interface_speed') == 0) {
-                    foreach my $layer (@{$object->support_layers}) {
-                        push @mm3_per_mm, $layer->support_fills->min_mm3_per_mm;
-                        push @mm3_per_mm, $layer->support_interface_fills->min_mm3_per_mm;
-                    }
-                }
-            }
-            # filter out 0-width segments
-            @mm3_per_mm = grep $_ > 0.000001, @mm3_per_mm;
-            if (@mm3_per_mm) {
-                my $min_mm3_per_mm = min(@mm3_per_mm);
-                # In order to honor max_print_speed we need to find a target volumetric
-                # speed that we can use throughout the print. So we define this target 
-                # volumetric speed as the volumetric speed produced by printing the 
-                # smallest cross-section at the maximum speed: any larger cross-section
-                # will need slower feedrates.
-                my $volumetric_speed = $min_mm3_per_mm * $self->config->max_print_speed;
-                
-                # limit such volumetric speed with max_volumetric_speed if set
-                if ($self->config->max_volumetric_speed > 0) {
-                    $volumetric_speed = min(
-                        $volumetric_speed,
-                        $self->config->max_volumetric_speed,
-                    );
-                }
-                $gcodegen->set_volumetric_speed($volumetric_speed);
-            }
-        }
     }
     
     $self->_cooling_buffer(Slic3r::GCode::CoolingBuffer->new($self->_gcodegen));
     
-    $self->_spiral_vase(Slic3r::GCode::SpiralVase->new(config => $self->config))
+    $self->_spiral_vase(Slic3r::GCode::SpiralVase->new($self->config))
         if $self->config->spiral_vase;
     
     $self->_vibration_limit(Slic3r::GCode::VibrationLimit->new(config => $self->config))
@@ -132,27 +80,65 @@ sub export {
     my $layer_height = $first_object->config->layer_height;
     for my $region_id (0..$#{$self->print->regions}) {
         my $region = $self->print->regions->[$region_id];
-        printf $fh "; external perimeters extrusion width = %.2fmm\n",
-            $region->flow(FLOW_ROLE_EXTERNAL_PERIMETER, $layer_height, 0, 0, -1, $first_object)->width;
-        printf $fh "; perimeters extrusion width = %.2fmm\n",
-            $region->flow(FLOW_ROLE_PERIMETER, $layer_height, 0, 0, -1, $first_object)->width;
-        printf $fh "; infill extrusion width = %.2fmm\n",
-            $region->flow(FLOW_ROLE_INFILL, $layer_height, 0, 0, -1, $first_object)->width;
-        printf $fh "; solid infill extrusion width = %.2fmm\n",
-            $region->flow(FLOW_ROLE_SOLID_INFILL, $layer_height, 0, 0, -1, $first_object)->width;
-        printf $fh "; top infill extrusion width = %.2fmm\n",
-            $region->flow(FLOW_ROLE_TOP_SOLID_INFILL, $layer_height, 0, 0, -1, $first_object)->width;
-        printf $fh "; support material extrusion width = %.2fmm\n",
-            $self->objects->[0]->support_material_flow->width
-            if $self->print->has_support_material;
-        printf $fh "; first layer extrusion width = %.2fmm\n",
+        
+        {
+            my $flow = $region->flow(FLOW_ROLE_EXTERNAL_PERIMETER, $layer_height, 0, 0, -1, $first_object);
+            my $vol_speed = $flow->mm3_per_mm * $region->config->get_abs_value('external_perimeter_speed');
+            $vol_speed = min($vol_speed, $self->config->max_volumetric_speed) if $self->config->max_volumetric_speed > 0;
+            printf $fh "; external perimeters extrusion width = %.2fmm (%.2fmm^3/s)\n",
+                $flow->width, $vol_speed;
+        }
+        {
+            my $flow = $region->flow(FLOW_ROLE_PERIMETER, $layer_height, 0, 0, -1, $first_object);
+            my $vol_speed = $flow->mm3_per_mm * $region->config->get_abs_value('perimeter_speed');
+            $vol_speed = min($vol_speed, $self->config->max_volumetric_speed) if $self->config->max_volumetric_speed > 0;
+            printf $fh "; perimeters extrusion width = %.2fmm (%.2fmm^3/s)\n",
+                $flow->width, $vol_speed;
+        }
+        {
+            my $flow = $region->flow(FLOW_ROLE_INFILL, $layer_height, 0, 0, -1, $first_object);
+            my $vol_speed = $flow->mm3_per_mm * $region->config->get_abs_value('infill_speed');
+            $vol_speed = min($vol_speed, $self->config->max_volumetric_speed) if $self->config->max_volumetric_speed > 0;
+            printf $fh "; infill extrusion width = %.2fmm (%.2fmm^3/s)\n",
+                $flow->width, $vol_speed;
+        }
+        {
+            my $flow = $region->flow(FLOW_ROLE_SOLID_INFILL, $layer_height, 0, 0, -1, $first_object);
+            my $vol_speed = $flow->mm3_per_mm * $region->config->get_abs_value('solid_infill_speed');
+            $vol_speed = min($vol_speed, $self->config->max_volumetric_speed) if $self->config->max_volumetric_speed > 0;
+            printf $fh "; solid infill extrusion width = %.2fmm (%.2fmm^3/s)\n",
+                $flow->width, $vol_speed;
+        }
+        {
+            my $flow = $region->flow(FLOW_ROLE_TOP_SOLID_INFILL, $layer_height, 0, 0, -1, $first_object);
+            my $vol_speed = $flow->mm3_per_mm * $region->config->get_abs_value('top_solid_infill_speed');
+            $vol_speed = min($vol_speed, $self->config->max_volumetric_speed) if $self->config->max_volumetric_speed > 0;
+            printf $fh "; top infill extrusion width = %.2fmm (%.2fmm^3/s)\n",
+                $flow->width, $vol_speed;
+        }
+        
+        if ($self->print->has_support_material) {
+            my $object0 = $self->objects->[0];
+            my $flow = $object0->support_material_flow;
+            my $vol_speed = $flow->mm3_per_mm * $object0->config->get_abs_value('support_material_speed');
+            $vol_speed = min($vol_speed, $self->config->max_volumetric_speed) if $self->config->max_volumetric_speed > 0;
+            printf $fh "; support material extrusion width = %.2fmm (%.2fmm^3/s)\n",
+                $flow->width, $vol_speed;
+        }
+        
+        printf $fh "; first layer extrusion width = %.2fmm (%.2fmm^3/s)\n",
             $region->flow(FLOW_ROLE_PERIMETER, $layer_height, 0, 1, -1, $self->objects->[0])->width
             if $region->config->first_layer_extrusion_width;
+        
         print  $fh "\n";
     }
     
     # prepare the helper object for replacing placeholders in custom G-code and output filename
     $self->placeholder_parser->update_timestamp;
+    
+    # GCode sets this automatically whenever we call change_layer(),
+    # but we need it for skirt/brim too
+    $gcodegen->set_first_layer(1);
     
     # disable fan
     print $fh $gcodegen->writer->set_fan(0, 1)
@@ -164,9 +150,14 @@ sub export {
     }
     
     # set extruder(s) temperature before and after start G-code
-    $self->_print_first_layer_temperature(0);
+    $self->_print_first_layer_temperature(0)
+        if $self->config->start_gcode !~ /M(?:109|104)/i;
     printf $fh "%s\n", $gcodegen->placeholder_parser->process($self->config->start_gcode);
-    $self->_print_first_layer_temperature(1);
+    foreach my $start_gcode (@{ $self->config->start_filament_gcode }) { # process filament gcode in order
+        printf $fh "%s\n", $gcodegen->placeholder_parser->process($start_gcode);
+    }
+    $self->_print_first_layer_temperature(1)
+        if $self->config->start_gcode !~ /M(?:109|104)/i;
     
     # set other general things
     print $fh $gcodegen->preamble;
@@ -193,12 +184,12 @@ sub export {
     }
     
     # calculate wiping points if needed
-    if ($self->config->ooze_prevention) {
+    if ($self->config->ooze_prevention && (my @extruders = @{$self->print->extruders}) > 1) {
         my @skirt_points = map @$_, map @$_, @{$self->print->skirt};
         if (@skirt_points) {
             my $outer_skirt = convex_hull(\@skirt_points);
             my @skirts = ();
-            foreach my $extruder_id (@{$self->print->extruders}) {
+            foreach my $extruder_id (@extruders) {
                 my $extruder_offset = $self->config->get_at('extruder_offset', $extruder_id);
                 push @skirts, my $s = $outer_skirt->clone;
                 $s->translate(-scale($extruder_offset->x), -scale($extruder_offset->y));  #)
@@ -261,8 +252,12 @@ sub export {
                     # is triggered, so machine has more time to reach such temperatures
                     if ($layer->id == 0 && $finished_objects > 0) {
                         printf $fh $gcodegen->writer->set_bed_temperature($self->config->first_layer_bed_temperature),
-                            if $self->config->first_layer_bed_temperature && $self->config->has_heatbed;
-                        $self->_print_first_layer_temperature(0);
+                            if $self->config->first_layer_bed_temperature
+                            && $self->config->has_heatbed
+                            && $self->config->between_objects_gcode !~ /M(?:190|140)/i;
+                        $self->_print_first_layer_temperature(0)
+                            if $self->config->between_objects_gcode !~ /M(?:109|104)/i;
+                        printf $fh "%s\n", $gcodegen->placeholder_parser->process($self->config->between_objects_gcode);
                     }
                     $self->process_layer($layer, [$copy]);
                 }
@@ -299,6 +294,9 @@ sub export {
     # write end commands to file
     print $fh $gcodegen->retract;   # TODO: process this retract through PressureRegulator in order to discharge fully
     print $fh $gcodegen->writer->set_fan(0);
+    foreach my $end_gcode (@{ $self->config->end_filament_gcode }) { # Process filament-specific gcode in extruder order.
+        printf $fh "%s\n", $gcodegen->placeholder_parser->process($end_gcode);
+    }
     printf $fh "%s\n", $gcodegen->placeholder_parser->process($self->config->end_gcode);
     print $fh $gcodegen->writer->update_progress($gcodegen->layer_count, $gcodegen->layer_count, 1);  # 100%
     print $fh $gcodegen->writer->postamble;
@@ -307,17 +305,33 @@ sub export {
     $self->print->clear_filament_stats;
     $self->print->total_used_filament(0);
     $self->print->total_extruded_volume(0);
+    $self->print->total_weight(0);
+    $self->print->total_cost(0);
     foreach my $extruder (@{$gcodegen->writer->extruders}) {
         my $used_filament = $extruder->used_filament;
         my $extruded_volume = $extruder->extruded_volume;
+        my $filament_weight = $extruded_volume * $extruder->filament_density / 1000;
+        my $filament_cost = $filament_weight * ($extruder->filament_cost / 1000);
         $self->print->set_filament_stats($extruder->id, $used_filament);
         
         printf $fh "; filament used = %.1fmm (%.1fcm3)\n",
             $used_filament, $extruded_volume/1000;
+        if ($filament_weight > 0) {
+            $self->print->total_weight($self->print->total_weight + $filament_weight);
+            printf $fh "; filament used = %.1fg\n",
+                   $filament_weight;
+            if ($filament_cost > 0) {
+                $self->print->total_cost($self->print->total_cost + $filament_cost);
+                printf $fh "; filament cost = %.1f\n",
+                       $filament_cost;
+            }
+        }
         
         $self->print->total_used_filament($self->print->total_used_filament + $used_filament);
         $self->print->total_extruded_volume($self->print->total_extruded_volume + $extruded_volume);
     }
+    printf $fh "; total filament cost = %.1f\n",
+           $self->print->total_cost;
     
     # append full config
     print $fh "\n";
@@ -332,7 +346,6 @@ sub export {
 sub _print_first_layer_temperature {
     my ($self, $wait) = @_;
     
-    return if $self->config->start_gcode =~ /M(?:109|104)/i;
     for my $t (@{$self->print->extruders}) {
         my $temp = $self->config->get_at('first_layer_temperature', $t);
         $temp += $self->config->standby_temperature_delta if $self->config->ooze_prevention;
@@ -353,9 +366,10 @@ sub process_layer {
     
     # check whether we're going to apply spiralvase logic
     if (defined $self->_spiral_vase) {
-        $self->_spiral_vase->enable(
-            ($layer->id > 0 || $self->print->config->brim_width == 0 || $self->print->config->brim_connections_width == 0)
-                && ($layer->id >= $self->print->config->skirt_height && !$self->print->has_infinite_skirt)
+        $self->_spiral_vase->set_enable(
+            $layer->id > 0
+                && ($self->print->config->skirts == 0
+                    || ($layer->id >= $self->print->config->skirt_height && !$self->print->has_infinite_skirt))
                 && !defined(first { $_->region->config->bottom_solid_layers > $layer->id } @{$layer->regions})
                 && !defined(first { $_->perimeters->items_count > 1 } @{$layer->regions})
                 && !defined(first { $_->fills->items_count > 0 } @{$layer->regions})
@@ -364,6 +378,56 @@ sub process_layer {
     
     # if we're going to apply spiralvase to this layer, disable loop clipping
     $self->_gcodegen->set_enable_loop_clipping(!defined $self->_spiral_vase || !$self->_spiral_vase->enable);
+    
+    # initialize autospeed
+    {
+        # get the minimum cross-section used in the layer
+        my @mm3_per_mm = ();
+        foreach my $region_id (0..$#{$self->print->regions}) {
+            my $region = $self->print->get_region($region_id);
+            my $layerm = $layer->region($region_id);
+            if ($region->config->get_abs_value('perimeter_speed') == 0
+                || $region->config->get_abs_value('small_perimeter_speed') == 0
+                || $region->config->get_abs_value('external_perimeter_speed') == 0
+                || $region->config->get_abs_value('bridge_speed') == 0) {
+                push @mm3_per_mm, $layerm->perimeters->min_mm3_per_mm;
+            }
+            if ($region->config->get_abs_value('infill_speed') == 0
+                || $region->config->get_abs_value('solid_infill_speed') == 0
+                || $region->config->get_abs_value('top_solid_infill_speed') == 0
+                || $region->config->get_abs_value('bridge_speed') == 0
+                || $region->config->get_abs_value('gap_fill_speed') == 0) {
+                push @mm3_per_mm, $layerm->fills->min_mm3_per_mm;
+            }
+        }
+        if ($layer->isa('Slic3r::Layer::Support')) {
+            if ($object->config->get_abs_value('support_material_speed') == 0
+                || $object->config->get_abs_value('support_material_interface_speed') == 0) {
+                push @mm3_per_mm, $layer->support_fills->min_mm3_per_mm;
+                push @mm3_per_mm, $layer->support_interface_fills->min_mm3_per_mm;
+            }
+        }
+        # ignore too thin segments
+        @mm3_per_mm = grep $_ > 0.01, @mm3_per_mm;
+        if (@mm3_per_mm) {
+            my $min_mm3_per_mm = min(@mm3_per_mm);
+            # In order to honor max_print_speed we need to find a target volumetric
+            # speed that we can use throughout the print. So we define this target 
+            # volumetric speed as the volumetric speed produced by printing the 
+            # smallest cross-section at the maximum speed: any larger cross-section
+            # will need slower feedrates.
+            my $volumetric_speed = $min_mm3_per_mm * $self->config->max_print_speed;
+            
+            # limit such volumetric speed with max_volumetric_speed if set
+            if ($self->config->max_volumetric_speed > 0) {
+                $volumetric_speed = min(
+                    $volumetric_speed,
+                    $self->config->max_volumetric_speed,
+                );
+            }
+            $self->_gcodegen->set_volumetric_speed($volumetric_speed);
+        }
+    }
     
     if (!$self->_second_layer_things_done && $layer->id == 1) {
         for my $extruder (@{$self->_gcodegen->writer->extruders}) {
@@ -441,7 +505,7 @@ sub process_layer {
     
     # extrude brim
     if (!$self->_brim_done) {
-        $gcode .= $self->_gcodegen->set_extruder($self->print->regions->[0]->config->perimeter_extruder-1);
+        $gcode .= $self->_gcodegen->set_extruder($self->print->brim_extruder-1);
         $self->_gcodegen->set_origin(Slic3r::Pointf->new(0,0));
         $self->_gcodegen->avoid_crossing_perimeters->set_use_external_mp(1);
         $gcode .= $self->_gcodegen->extrude($_, 'brim', $object->config->support_material_speed)
@@ -557,7 +621,7 @@ sub process_layer {
         }
         
         # tweak extruder ordering to save toolchanges
-        my @extruders = sort keys %by_extruder;
+        my @extruders = sort { $a <=> $b } keys %by_extruder;
         if (@extruders > 1) {
             my $last_extruder_id = $self->_gcodegen->writer->extruder->id;
             if (exists $by_extruder{$last_extruder_id}) {

@@ -10,6 +10,7 @@ my %prereqs = qw(
     Devel::CheckLib                 0
     Encode                          0
     Encode::Locale                  1.05
+    ExtUtils::CppGuess              0
     ExtUtils::MakeMaker             6.80
     ExtUtils::ParseXS               3.22
     File::Basename                  0
@@ -28,8 +29,9 @@ my %prereqs = qw(
 );
 my %recommends = qw(
     Class::XSAccessor               0
-    XML::SAX::ExpatXS               0
     Test::Harness                   0
+    Thread::Queue                   0
+    threads::shared                 0
 );
 
 my $sudo    = grep { $_ eq '--sudo' } @ARGV;
@@ -127,18 +129,9 @@ EOF
         
         # temporary workaround for upstream bug in test
         push @cmd, '--notest'
-            if $module =~ /^(?:OpenGL|Math::PlanePath|Test::Harness)$/;
+            if $module =~ /^(?:OpenGL|Math::PlanePath|Test::Harness|IO::Scalar)$/;
         
         push @cmd, "$module~$version";
-        if ($module eq 'XML::SAX::ExpatXS' && $^O eq 'MSWin32') {
-            my $mingw = 'C:\dev\CitrusPerl\mingw64';
-            $mingw = 'C:\dev\CitrusPerl\mingw32' if !-d $mingw;
-            if (!-d $mingw) {
-                print "Could not find the MinGW directory at $mingw; skipping XML::SAX::ExpatXS (only needed for faster parsing of AMF files)\n";
-            } else {
-                push @cmd, sprintf('--configure-args="EXPATLIBPATH=%s\lib EXPATINCPATH=%s\include"', $mingw, $mingw);
-            }
-        }
         my $res = system @cmd;
         if ($res != 0) {
             if (exists $prereqs{$module}) {

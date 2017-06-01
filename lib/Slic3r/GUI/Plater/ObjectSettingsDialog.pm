@@ -7,8 +7,8 @@ use strict;
 use warnings;
 use utf8;
 
-use Wx qw(:dialog :id :misc :sizer :systemsettings :notebook wxTAB_TRAVERSAL);
-use Wx::Event qw(EVT_BUTTON);
+use Wx qw(:dialog :id :misc :sizer :systemsettings :notebook wxTAB_TRAVERSAL wxTheApp);
+use Wx::Event qw(EVT_BUTTON EVT_MENU);
 use base 'Wx::Dialog';
 
 sub new {
@@ -30,6 +30,9 @@ sub new {
         # notify tabs
         $self->{layers}->Closing;
         
+        # save window size
+        wxTheApp->save_window_pos($self, "object_settings");
+        
         $self->EndModal(wxID_OK);
         $self->Destroy;
     });
@@ -40,6 +43,8 @@ sub new {
     
     $self->SetSizer($sizer);
     $self->SetMinSize($self->GetSize);
+    
+    wxTheApp->restore_window_pos($self, "object_settings");
     
     return $self;
 }
@@ -53,6 +58,7 @@ sub PartSettingsChanged {
     my ($self) = @_;
     return $self->{parts}->PartSettingsChanged || $self->{layers}->LayersChanged;
 }
+
 
 package Slic3r::GUI::Plater::ObjectDialog::BaseTab;
 use base 'Wx::Panel';
@@ -77,7 +83,7 @@ sub new {
     
     {
         my $label = Wx::StaticText->new($self, -1, "You can use this section to override the default layer height for parts of this object. Set layer height to zero to skip portions of the input file.",
-            wxDefaultPosition, [-1, 40]);
+            wxDefaultPosition, wxDefaultSize);
         $label->SetFont(Wx::SystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT));
         $sizer->Add($label, 0, wxEXPAND | wxALL, 10);
     }
@@ -90,7 +96,7 @@ sub new {
     $grid->SetColLabelValue(0, "Min Z (mm)");
     $grid->SetColLabelValue(1, "Max Z (mm)");
     $grid->SetColLabelValue(2, "Layer height (mm)");
-    $grid->SetColSize($_, 135) for 0..2;
+    $grid->SetColSize($_, -1) for 0..2;
     $grid->SetDefaultCellAlignment(wxALIGN_CENTRE, wxALIGN_CENTRE);
     
     # load data

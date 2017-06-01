@@ -42,8 +42,10 @@ sub size {
 sub process {
     my ($self) = @_;
     
-    $self->status_cb->(20, "Generating perimeters");
-    $_->make_perimeters for @{$self->objects};
+    ### No need to call this as we call it as part of prepare_infill()
+    ### until we fix the idempotency issue.
+    ###$self->status_cb->(20, "Generating perimeters");
+    ###$_->make_perimeters for @{$self->objects};
     
     $self->status_cb->(70, "Infilling layers");
     $_->infill for @{$self->objects};
@@ -101,7 +103,16 @@ sub export_gcode {
 
         # close our gcode file
         close $fh;
-        rename $tempfile, $output_file if $tempfile;
+        if ($tempfile) {
+            my $renamed = 0;
+            for my $i (1..5) {
+                last if $renamed = rename Slic3r::encode_path($tempfile), Slic3r::encode_path($output_file);
+                # Wait for 1/4 seconds and try to rename once again.
+                select(undef, undef, undef, 0.25);
+            }
+            Slic3r::debugf "Failed to remove the output G-code file from $tempfile to $output_file. Is $tempfile locked?\n"
+                if !$renamed;
+        }
     }
     
     # run post-processing scripts

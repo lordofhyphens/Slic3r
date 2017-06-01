@@ -119,7 +119,7 @@ OozePrevention::post_toolchange(GCode &gcodegen)
 int
 OozePrevention::_get_temp(GCode &gcodegen)
 {
-    return (gcodegen.layer != NULL && gcodegen.layer->id() == 0)
+    return gcodegen.first_layer
         ? gcodegen.config.first_layer_temperature.get_at(gcodegen.writer.extruder()->id)
         : gcodegen.config.temperature.get_at(gcodegen.writer.extruder()->id);
 }
@@ -201,7 +201,8 @@ Wipe::wipe(GCode &gcodegen, bool toolchange)
 
 GCode::GCode()
     : placeholder_parser(NULL), enable_loop_clipping(true), enable_cooling_markers(false), layer_count(0),
-        layer_index(-1), layer(NULL), first_layer(false), elapsed_time(0.0), volumetric_speed(0),
+        layer_index(-1), layer(NULL), first_layer(false), elapsed_time(0.0),
+        elapsed_time_bridges(0.0), elapsed_time_external(0.0), volumetric_speed(0),
         _last_pos_defined(false)
 {
 }
@@ -324,7 +325,7 @@ GCode::extrude(ExtrusionLoop loop, std::string description, double speed)
     Point last_pos = this->last_pos();
     if (this->config.spiral_vase) {
         loop.split_at(last_pos);
-    } else if (seam_position == spNearest || seam_position == spAligned) {
+    } else if (seam_position == spNearest || seam_position == spAligned || seam_position == spRear) {
         const Polygon polygon = loop.polygon();
         
         // simplify polygon in order to skip false positives in concave/convex detection
@@ -333,29 +334,28 @@ GCode::extrude(ExtrusionLoop loop, std::string description, double speed)
         
         // restore original winding order so that concave and convex detection always happens
         // on the right/outer side of the polygon
-        if (was_clockwise) {
-            for (Polygons::iterator p = simplified.begin(); p != simplified.end(); ++p)
-                p->reverse();
-        }
+        if (was_clockwise)
+            for (Polygon &p : simplified)
+                p.reverse();
         
         // concave vertices have priority
         Points candidates;
-        for (Polygons::const_iterator p = simplified.begin(); p != simplified.end(); ++p) {
-            Points concave = p->concave_points(PI*4/3);
-            candidates.insert(candidates.end(), concave.begin(), concave.end());
-        }
+        for (const Polygon &p : simplified)
+            append_to(candidates, p.concave_points(PI*4/3));
         
         // if no concave points were found, look for convex vertices
-        if (candidates.empty()) {
-            for (Polygons::const_iterator p = simplified.begin(); p != simplified.end(); ++p) {
-                Points convex = p->convex_points(PI*2/3);
-                candidates.insert(candidates.end(), convex.begin(), convex.end());
-            }
-        }
+        if (candidates.empty())
+            for (const Polygon &p : simplified)
+                append_to(candidates, p.convex_points(PI*2/3));
         
         // retrieve the last start position for this object
-        if (this->layer != NULL && this->_seam_position.count(this->layer->object()) > 0) {
-            last_pos = this->_seam_position[this->layer->object()];
+        if (this->layer != NULL) {
+            if (seam_position == spRear) {
+                last_pos = this->layer->object()->bounding_box().center();
+                last_pos.y += coord_t(3. * this->layer->object()->bounding_box().radius());
+            } else if (this->_seam_position.count(this->layer->object()) > 0) {
+                last_pos = this->_seam_position[this->layer->object()];
+            }
         }
         
         Point point;
@@ -369,10 +369,9 @@ GCode::extrude(ExtrusionLoop loop, std::string description, double speed)
             if (!loop.split_at_vertex(point)) loop.split_at(point);
         } else if (!candidates.empty()) {
             Points non_overhang;
-            for (Points::const_iterator p = candidates.begin(); p != candidates.end(); ++p) {
-                if (!loop.has_overhang_point(*p))
-                    non_overhang.push_back(*p);
-            }
+            for (const Point &p : candidates)
+                if (!loop.has_overhang_point(p))
+                    non_overhang.push_back(p);
             
             if (!non_overhang.empty())
                 candidates = non_overhang;
@@ -383,8 +382,15 @@ GCode::extrude(ExtrusionLoop loop, std::string description, double speed)
             point = last_pos.projection_onto(polygon);
             loop.split_at(point);
         }
-        if (this->layer != NULL)
+        if (this->layer != NULL) {
+            /* Keeping a single starting point for each object works best with objects
+               having a single island. In the other cases, this works when layers are 
+               similar, so the algorithm picks the same chain of points. But when an 
+               island disappears, the others might suffer from a starting point change
+               even if their shape didn't change. We should probably keep multiple
+               starting points for each layer and test all of them. */
             this->_seam_position[this->layer->object()] = point;
+        }
     } else if (seam_position == spRandom) {
         if (loop.role == elrContourInternalPerimeter) {
             Polygon polygon = loop.polygon();
@@ -392,7 +398,8 @@ GCode::extrude(ExtrusionLoop loop, std::string description, double speed)
             last_pos = Point(polygon.bounding_box().max.x, centroid.y);
             last_pos.rotate(fmod((float)rand()/16.0, 2.0*PI), centroid);
         }
-        loop.split_at(last_pos);
+        // Find the closest point, avoid overhangs.
+        loop.split_at(last_pos, true);
     }
     
     // clip the path to avoid the extruder to get exactly on the first point of the loop;
@@ -408,9 +415,11 @@ GCode::extrude(ExtrusionLoop loop, std::string description, double speed)
     if (paths.empty()) return "";
     
     // apply the small perimeter speed
-    if (paths.front().is_perimeter() && loop.length() <= SMALL_PERIMETER_LENGTH) {
-        if (speed == -1) speed = this->config.get_abs_value("small_perimeter_speed");
-    }
+    if (paths.front().is_perimeter()
+        && !loop.has(erOverhangPerimeter)
+        && loop.length() <= SMALL_PERIMETER_LENGTH
+        && speed == -1)
+        speed = this->config.get_abs_value("small_perimeter_speed");
     
     // extrude along the path
     std::string gcode;
@@ -446,8 +455,8 @@ GCode::extrude(ExtrusionLoop loop, std::string description, double speed)
             paths.front().polyline.points[0],
             paths.front().polyline.points[1]
         );
-        double distance = std::min(
-            scale_(EXTRUDER_CONFIG(nozzle_diameter)),
+        const double distance = std::min(
+            (double)scale_(EXTRUDER_CONFIG(nozzle_diameter)),
             first_segment.length()
         );
         Point point = first_segment.point_at(distance);
@@ -544,11 +553,11 @@ GCode::_extrude(ExtrusionPath path, std::string description, double speed)
             CONFESS("Invalid speed");
         }
     }
-    if (this->first_layer) {
-        speed = this->config.get_abs_value("first_layer_speed", speed);
-    }
     if (this->volumetric_speed != 0 && speed == 0) {
         speed = this->volumetric_speed / path.mm3_per_mm;
+    }
+    if (this->first_layer) {
+        speed = this->config.get_abs_value("first_layer_speed", speed);
     }
     if (this->config.max_volumetric_speed.value > 0) {
         // cap speed with max_volumetric_speed anyway (even if user is not using autospeed)
@@ -569,7 +578,9 @@ GCode::_extrude(ExtrusionPath path, std::string description, double speed)
     // extrude arc or line
     if (path.is_bridge() && this->enable_cooling_markers)
         gcode += ";_BRIDGE_FAN_START\n";
-    gcode += this->writer.set_speed(F, "", this->enable_cooling_markers ? ";_EXTRUDE_SET_SPEED" : "");
+    std::string comment = ";_EXTRUDE_SET_SPEED";
+    if (path.role == erExternalPerimeter) comment += ";_EXTERNAL_PERIMETER";
+    gcode += this->writer.set_speed(F, "", this->enable_cooling_markers ? comment : "");
     double path_length = 0;
     {
         std::string comment = this->config.gcode_comments ? description : "";
@@ -594,8 +605,12 @@ GCode::_extrude(ExtrusionPath path, std::string description, double speed)
     
     this->set_last_pos(path.last_point());
     
-    if (this->config.cooling)
-        this->elapsed_time += path_length / F * 60;
+    if (this->config.cooling) {
+        float t = path_length / F * 60;
+        this->elapsed_time += t;
+        if (path.is_bridge()) this->elapsed_time_bridges += t;
+        if (path.role == erExternalPerimeter) this->elapsed_time_external += t;
+    }
     
     return gcode;
 }
