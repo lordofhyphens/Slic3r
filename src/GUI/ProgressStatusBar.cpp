@@ -35,7 +35,11 @@ void ProgressStatusBar::OnSize(wxSizeEvent &e) {
     {
         wxRect rect;
         this->GetFieldRect(1, rect);
+#ifdef __linux__
         const auto& offset = ( wxGTK ? 1 : 0); // cosmetic 1px offset on wxgtk
+#else
+		const auto& offset = 0; 
+#endif
         const auto& pos {wxPoint(rect.x + offset, rect.y + offset)};
         this->cancelbutton->Move(pos);
         this->cancelbutton->SetSize(rect.GetWidth() - offset, rect.GetHeight());
@@ -44,7 +48,11 @@ void ProgressStatusBar::OnSize(wxSizeEvent &e) {
     {
         wxRect rect;
         this->GetFieldRect(2, rect);
+#ifdef __linux__
         const auto& offset = ( wxGTK ? 1 : 0); // cosmetic 1px offset on wxgtk
+#else
+		const auto& offset = 0;
+#endif
         const auto& pos {wxPoint(rect.x + offset, rect.y + offset)};
         this->prog->Move(pos);
         this->prog->SetSize(rect.GetWidth() - offset, rect.GetHeight());
