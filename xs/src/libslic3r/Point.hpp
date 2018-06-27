@@ -36,6 +36,9 @@ class Point
     static Point new_scale(coordf_t x, coordf_t y) {
         return Point(scale_(x), scale_(y));
     };
+
+    /// Scale and create a Point from a Pointf.
+    static Point new_scale(Pointf p);
     bool operator==(const Point& rhs) const;
     std::string wkt() const;
     std::string dump_perl() const;
@@ -151,6 +154,15 @@ to_points(const std::vector<T> &items)
         append_to(pp, (Points)*it);
     return pp;
 }
+
+inline Points
+scale(const std::vector<Pointf>&in ) {
+    Points out; 
+    for (const auto& p : in) {out.push_back(Point(scale_(p.x), scale_(p.y))); }
+    return out;
+}
+
+
 
 }
 
