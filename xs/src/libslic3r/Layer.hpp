@@ -167,6 +167,7 @@ class SupportLayer : public Layer {
     ExtrusionEntityCollection support_fills;
     /// Collection of support interface fills.
     /// Populated in SupportMaterial.pm in sub generate_toolpaths
+    // Not used here anymore.
     ExtrusionEntityCollection support_interface_fills;
 
     protected:

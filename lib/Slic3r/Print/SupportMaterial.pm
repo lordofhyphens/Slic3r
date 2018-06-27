@@ -126,7 +126,7 @@ sub contact_area {
               && ($layer_id >= $conf->support_material_enforce_layers) ) {
             # if we are only going to generate raft just check 
             # the 'overhangs' of the first object layer
-            last;
+            last; # break the loop.
         }
         my $layer = $object->get_layer($layer_id);
 		last if $conf->support_material_max_layers
