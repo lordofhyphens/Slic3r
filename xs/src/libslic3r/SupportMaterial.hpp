@@ -1,7 +1,17 @@
 #ifndef slic3r_SupportMaterial_hpp_
 #define slic3r_SupportMaterial_hpp_
 
+#include "PrintConfig.hpp"
+#include "Print.hpp"
+
+using namespace std;
+
 namespace Slic3r {
+
+// TODO @Samir55, Refactor later to be phased out if possible.
+class SupportParameters{
+
+};
 
 // how much we extend support around the actual contact area
 constexpr coordf_t SUPPORT_MATERIAL_MARGIN = 1.5;
@@ -125,8 +135,8 @@ public:
     typedef std::vector<MyLayer *> MyLayersPtr;
 
 public:
-    // TODO Change to PrintConfig.
-//    PrintObjectSupportMaterial(const PrintObject *object, const SlicingParameters &slicing_params);
+    PrintObjectSupportMaterial(const PrintObject *object, const PrintConfig *print_config, const PrintObjectConfig *print_object_config,
+                               const SupportParameters &support_params);
 
     /// Is raft enabled?
     bool has_raft() const;
@@ -141,31 +151,50 @@ public:
     bool synchronize_layers() const;
 
     /// TODO @Samir55 ASK.
+    ///
+    /// \return
     bool has_contact_loops() const;
 
     /// Generate support material for the object.
     /// New support layers will be added to the object,
     /// with extrusion paths and islands filled in for each support layer.
+    /// \param object
     void generate(PrintObject &object);
 
 private:
     /// Generate top contact layers supporting overhangs. TODO @Samir55 ASK.
     /// For a soluble interface material synchronize the layer heights with the object, otherwise leave the layer height undefined.
     /// If supports over bed surface only are requested, don't generate contact layers over an object.
+    /// \param object
+    /// \param layer_storage
+    /// \return
     MyLayersPtr top_contact_layers(const PrintObject &object, MyLayerStorage &layer_storage) const;
 
     /// Generate bottom contact layers supporting the top contact layers. TODO @Samir55 ASK.
     /// For a soluble interface material synchronize the layer heights with the object,
     /// otherwise set the layer height to a bridging flow of a support interface nozzle.
+    /// \param object
+    /// \param top_contacts
+    /// \param layer_storage
+    /// \param layer_support_areas
+    /// \return
     MyLayersPtr bottom_contact_layers_and_layer_support_areas(
         const PrintObject &object, const MyLayersPtr &top_contacts, MyLayerStorage &layer_storage,
         std::vector<Polygons> &layer_support_areas) const;
 
     /// Trim the top_contacts layers with the bottom_contacts layers if they overlap, so there would not be enough vertical space for both of them. TODO @Samir55 ASK.
+    /// \param object
+    /// \param bottom_contacts
+    /// \param top_contacts
     void trim_top_contacts_by_bottom_contacts(const PrintObject &object, const MyLayersPtr &bottom_contacts,
                                               MyLayersPtr &top_contacts) const;
 
     /// Generate raft layers and the intermediate support layers between the bottom contact and top contact surfaces.
+    /// \param object
+    /// \param bottom_contacts
+    /// \param top_contacts
+    /// \param layer_storage
+    /// \return
     MyLayersPtr raft_and_intermediate_support_layers(
         const PrintObject &object,
         const MyLayersPtr &bottom_contacts,
@@ -182,6 +211,11 @@ private:
 
     /// Generate raft layers, also expand the 1st support layer
     /// in case there is no raft layer to improve support adhesion.
+    /// \param top_contacts
+    /// \param interface_layers
+    /// \param base_layers
+    /// \param layer_storage
+    /// \return
     MyLayersPtr generate_raft_base(
         const MyLayersPtr &top_contacts,
         const MyLayersPtr &interface_layers,
@@ -197,14 +231,25 @@ private:
 
     /// Trim support layers by an object to leave a defined gap between
     /// the support volume and the object.
+    /// \param object
+    /// \param support_layers
+    /// \param gap_extra_above
+    /// \param gap_extra_below
+    /// \param gap_xy
     void trim_support_layers_by_object(
         const PrintObject &object,
         MyLayersPtr &support_layers,
-        const coordf_t gap_extra_above,
-        const coordf_t gap_extra_below,
-        const coordf_t gap_xy) const;
+        coordf_t gap_extra_above,
+        coordf_t gap_extra_below,
+        coordf_t gap_xy) const;
 
     /// Produce the actual G-code.
+    /// \param object
+    /// \param raft_layers
+    /// \param bottom_contacts
+    /// \param top_contacts
+    /// \param intermediate_layers
+    /// \param interface_layers
     void generate_toolpaths(
         const PrintObject &object,
         const MyLayersPtr &raft_layers,
@@ -214,26 +259,25 @@ private:
         const MyLayersPtr &interface_layers) const;
 
     // Following objects are not owned by SupportMaterial class.
-    const PrintObject *m_object;
-    const PrintConfig *m_print_config;
-    const PrintObjectConfig *m_object_config;
+    const PrintObject *m_object; ///<
+    const PrintConfig *m_print_config; ///<
+    const PrintObjectConfig *m_object_config; ///<
 
     // Pre-calculated parameters shared between the object slicer and the support generator,
     // carrying information on a raft, 1st layer height, 1st object layer height, gap between the raft and object etc.
-    // TODO Change to PrintConfig.
-//    SlicingParameters m_slicing_params;
+    SupportParameters m_support_params; ///<
 
-    Flow m_first_layer_flow;
-    Flow m_support_material_flow;
-    Flow m_support_material_interface_flow;
+    Flow m_first_layer_flow; ///<
+    Flow m_support_material_flow; ///<
+    Flow m_support_material_interface_flow; ///<
 
     bool m_can_merge_support_regions;
     ///< Is merging of regions allowed? Could the interface & base support regions be printed with the same extruder?
 
-    coordf_t m_support_layer_height_min;
-    coordf_t m_support_layer_height_max;
+    coordf_t m_support_layer_height_min; ///<
+    coordf_t m_support_layer_height_max; ///<
 
-    coordf_t m_gap_xy;
+    coordf_t m_gap_xy; ///<
 };
 
 }
