@@ -163,7 +163,12 @@ scale(const std::vector<Pointf>&in ) {
     return out;
 }
 
-
+// To be used by std::unordered_map, std::unordered_multimap and friends.
+struct PointHash {
+    size_t operator()(const Point &pt) const {
+        return std::hash<coord_t>()(pt.x) ^ std::hash<coord_t>()(pt.y);
+    }
+};
 
 }
 

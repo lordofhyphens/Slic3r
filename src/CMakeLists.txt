@@ -135,7 +135,7 @@ add_library(libslic3r STATIC
     ${LIBDIR}/libslic3r/Surface.cpp
     ${LIBDIR}/libslic3r/SurfaceCollection.cpp
     ${LIBDIR}/libslic3r/SupportMaterial.cpp
-    ${LIBDIR}/libslic3r/SupportMaterial.hpp
+    ${LIBDIR}/libslic3r/EdgeGrid.cpp
     ${LIBDIR}/libslic3r/SVG.cpp
     ${LIBDIR}/libslic3r/TriangleMesh.cpp
     ${LIBDIR}/libslic3r/utils.cpp

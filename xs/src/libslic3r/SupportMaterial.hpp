@@ -6,6 +6,7 @@
 #include "ClipperUtils.hpp"
 #include "PrintConfig.hpp"
 #include "Print.hpp"
+#include "EdgeGrid.hpp"
 
 #define MIN_LAYER_HEIGHT 0.01
 #define MIN_LAYER_HEIGHT_DEFAULT 0.07
@@ -416,9 +417,9 @@ public:
         BoundingBox bbox = get_extents(*m_support_polygons);
         bbox.offset(20);
         bbox.align_to_grid(grid_resolution);
-//        m_grid.set_bbox(bbox);
-//        m_grid.create(*m_support_polygons, grid_resolution);
-//        m_grid.calculate_sdf();
+        m_grid.set_bbox(bbox);
+        m_grid.create(*m_support_polygons, grid_resolution);
+        m_grid.calculate_sdf();
         // Extract a bounding contour from the grid, trim by the object.
         m_island_samples = island_samples(*m_support_polygons);
     }
@@ -566,7 +567,7 @@ private:
     coordf_t m_support_angle; ///< Angle in radians, by which the whole support is rotated.
     coordf_t m_support_spacing; ///< X spacing of the support lines parallel with the Y axis.
 
-//    Slic3r::EdgeGrid::Grid m_grid;
+    Slic3r::EdgeGrid::Grid m_grid;
     Points m_island_samples;
 };
 
