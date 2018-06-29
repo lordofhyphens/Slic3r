@@ -48,9 +48,18 @@ class ExPolygon
     void triangulate(Polygons* polygons) const;
     void triangulate_pp(Polygons* polygons) const;
     void triangulate_p2t(Polygons* polygons) const;
+    void clear() { contour.points.clear(); holes.clear(); }
     Lines lines() const;
     std::string dump_perl() const;
 };
+
+inline void polygons_append(Polygons &dst, ExPolygon &&src)
+{
+    dst.reserve(dst.size() + src.holes.size() + 1);
+    dst.push_back(std::move(src.contour));
+    std::move(std::begin(src.holes), std::end(src.holes), std::back_inserter(dst));
+    src.holes.clear();
+}
 
 inline Polygons
 to_polygons(const ExPolygons &expolygons)

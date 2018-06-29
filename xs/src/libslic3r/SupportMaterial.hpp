@@ -1,11 +1,14 @@
 #ifndef slic3r_SupportMaterial_hpp_
 #define slic3r_SupportMaterial_hpp_
 
+#include "Polygon.hpp"
+#include "ExPolygon.hpp"
+#include "ClipperUtils.hpp"
 #include "PrintConfig.hpp"
 #include "Print.hpp"
 
 #define MIN_LAYER_HEIGHT 0.01
-#define MIN_LAYER_HEIGHT_DEFAULT = 0.07
+#define MIN_LAYER_HEIGHT_DEFAULT 0.07
 
 using namespace std;
 
@@ -25,15 +28,19 @@ class SupportParameters
         const std::vector<unsigned int> &object_extruders);
 
     // Has any raft layers?
-    bool has_raft() const { return raft_layers() > 0; }
+    bool
+    has_raft() const { return raft_layers() > 0; }
 
-    size_t raft_layers() const { return base_raft_layers + interface_raft_layers; }
+    size_t
+    raft_layers() const { return base_raft_layers + interface_raft_layers; }
 
     // Is the 1st object layer height fixed, or could it be varied?
-    bool first_object_layer_height_fixed() const { return !has_raft() || first_object_layer_bridging; }
+    bool
+    first_object_layer_height_fixed() const { return !has_raft() || first_object_layer_bridging; }
 
     // Height of the object to be printed. This value does not contain the raft height.
-    coordf_t object_print_z_height() const { return object_print_z_max - object_print_z_min; }
+    coordf_t
+    object_print_z_height() const { return object_print_z_max - object_print_z_min; }
 
     // Number of raft layers.
     size_t base_raft_layers;
@@ -380,6 +387,190 @@ private:
     coordf_t m_support_layer_height_min; ///<
     coordf_t m_support_layer_height_max; ///<
     coordf_t m_gap_xy; ///<
+};
+
+/// Support grid pattern class. TODO @Samir Add contour based method also if applicable.
+class SupportGridPattern
+{
+public:
+    SupportGridPattern(
+        const Polygons &support_polygons,
+        const Polygons &trimming_polygons,
+        coordf_t support_spacing,
+        coordf_t support_angle) :
+        m_support_polygons(&support_polygons), m_trimming_polygons(&trimming_polygons),
+        m_support_spacing(support_spacing), m_support_angle(support_angle)
+    {
+        if (m_support_angle != 0.0)
+        {
+
+            // Create a copy of the rotated contours.
+            m_support_polygons_rotated = support_polygons;
+            m_trimming_polygons_rotated = trimming_polygons;
+            m_support_polygons = &m_support_polygons_rotated;
+            m_trimming_polygons = &m_trimming_polygons_rotated;
+            polygons_rotate(m_support_polygons_rotated, -support_angle);
+            polygons_rotate(m_trimming_polygons_rotated, -support_angle);
+        }
+        // Create an EdgeGrid, initialize it with projection, initialize signed distance field.
+        coord_t grid_resolution = coord_t(scale_(m_support_spacing));
+        BoundingBox bbox = get_extents(*m_support_polygons);
+        bbox.offset(20);
+        bbox.align_to_grid(grid_resolution);
+        m_grid.set_bbox(bbox);
+        m_grid.create(*m_support_polygons, grid_resolution);
+        m_grid.calculate_sdf();
+        // Extract a bounding contour from the grid, trim by the object.
+        m_island_samples = island_samples(*m_support_polygons);
+    }
+
+    /// Extract polygons from the grid, offset by offset_in_grid,
+    /// and trim the extracted polygons by trimming_polygons.
+    /// Trimming by the trimming_polygons may split the extracted polygons into pieces.
+    /// Remove all the pieces, which do not contain any of the island_samples.
+    /// \param offset_in_grid
+    /// \return
+    Polygons
+    extract_support(const coord_t offset_in_grid)
+    {
+        // Generate islands, so each island may be tested for overlap with m_island_samples.
+        ExPolygons islands = diff_ex(
+            m_grid.contours_simplified(offset_in_grid),
+            *m_trimming_polygons, false);
+
+        // Extract polygons, which contain some of the m_island_samples.
+        Polygons out;
+        std::vector<std::pair<Point, bool>> samples_inside;
+
+        for (ExPolygon &island : islands)
+        {
+            BoundingBox bbox = get_extents(island.contour);
+            auto it_lower = std::lower_bound(m_island_samples.begin(), m_island_samples.end(), bbox.min - Point(1, 1));
+            auto it_upper = std::upper_bound(m_island_samples.begin(), m_island_samples.end(), bbox.max + Point(1, 1));
+            samples_inside.clear();
+            for (auto it = it_lower; it != it_upper; ++it)
+                if (bbox.contains(*it))
+                    samples_inside.push_back(std::make_pair(*it, false));
+            if (!samples_inside.empty())
+            {
+                // For all samples_inside count the boundary crossing.
+                for (size_t i_contour = 0; i_contour <= island.holes.size(); ++i_contour)
+                {
+//                    Polygon &contour = (i_contour == 0) ? island.contour : island.holes[i_contour - 1]; TODO @Samir55
+                    Polygon &contour = *((i_contour == 0) ? &island.contour : &island.holes[i_contour - 1]);
+                    Points::const_iterator i = contour.points.begin();
+                    Points::const_iterator j = contour.points.end() - 1;
+                    for (; i != contour.points.end(); j = i++)
+                    {
+                        //FIXME this test is not numerically robust. Particularly, it does not handle horizontal segments at y == point.y well.
+                        // Does the ray with y == point.y intersect this line segment?
+                        for (auto &sample_inside : samples_inside)
+                        {
+                            if ((i->y > sample_inside.first.y) != (j->y > sample_inside.first.y))
+                            {
+                                double x1 = (double) sample_inside.first.x;
+                                double x2 = (double) i->x
+                                    + (double) (j->x - i->x) * (double) (sample_inside.first.y - i->y)
+                                        / (double) (j->y - i->y);
+                                if (x1 < x2)
+                                    sample_inside.second = !sample_inside.second;
+                            }
+                        }
+                    }
+                }
+                // If any of the sample is inside this island, add this island to the output.
+                for (auto &sample_inside : samples_inside)
+                    if (sample_inside.second)
+                    {
+                        polygons_append(out, std::move(island));
+                        island.clear();
+                        break;
+                    }
+            }
+        }
+
+        if (m_support_angle != 0.)
+            polygons_rotate(out, m_support_angle);
+        return out;
+    }
+
+private:
+    ///
+    /// \param rhs
+    /// \return
+    SupportGridPattern &
+    operator=(const SupportGridPattern &rhs);
+
+    /// Get some internal point of an expolygon, to be used as a representative
+    /// sample to test, whether this island is inside another island.
+    /// \param expoly
+    /// \return
+    static Point
+    island_sample(const ExPolygon &expoly)
+    {
+        // Find the lowest point lexicographically.
+        const Point *pt_min = &expoly.contour.points.front();
+        for (size_t i = 1; i < expoly.contour.points.size(); ++i)
+            if (expoly.contour.points[i] < *pt_min)
+                pt_min = &expoly.contour.points[i];
+
+        // Lowest corner will always be convex, in worst case denegenerate with zero angle.
+        const Point &p1 = (pt_min == &expoly.contour.points.front()) ? expoly.contour.points.back() : *(pt_min - 1);
+        const Point &p2 = *pt_min;
+        const Point &p3 = (pt_min == &expoly.contour.points.back()) ? expoly.contour.points.front() : *(pt_min + 1);
+
+        Vector v = (p3 - p2) + (p1 - p2);
+        double l2 = double(v.x) * double(v.x) + double(v.y) * double(v.y);
+        if (l2 == 0.)
+            return p2;
+        double coef = 20. / sqrt(l2);
+        return Point(p2.x + coef * v.x, p2.y + coef * v.y);
+    }
+
+    ///
+    /// \param expolygons
+    /// \return
+    static Points
+    island_samples(const ExPolygons &expolygons)
+    {
+        Points pts;
+        pts.reserve(expolygons.size());
+        for (const ExPolygon &expoly : expolygons)
+            if (expoly.contour.points.size() > 2)
+            {
+#if 0
+                pts.push_back(island_sample(expoly));
+#else
+                Polygons polygons = offset(expoly, -20.f);
+                for (const Polygon &poly : polygons)
+                    if (!poly.points.empty())
+                    {
+                        pts.push_back(poly.points.front());
+                        break;
+                    }
+#endif
+            }
+        // Sort the points lexicographically, so a binary search could be used to locate points inside a bounding box.
+        std::sort(pts.begin(), pts.end());
+        return pts;
+    }
+
+    static Points
+    island_samples(const Polygons &polygons)
+    {
+        return island_samples(union_ex(polygons));
+    }
+
+    const Polygons *m_support_polygons; ///<
+    const Polygons *m_trimming_polygons; ///<
+    Polygons m_support_polygons_rotated; ///<
+    Polygons m_trimming_polygons_rotated; ///<
+
+    coordf_t m_support_angle; ///< Angle in radians, by which the whole support is rotated.
+    coordf_t m_support_spacing; ///< X spacing of the support lines parallel with the Y axis.
+
+    Slic3r::EdgeGrid::Grid m_grid;
+    Points m_island_samples;
 };
 
 }

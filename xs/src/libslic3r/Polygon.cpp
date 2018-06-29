@@ -302,6 +302,21 @@ Polygon Polygon::new_scale(const Pointfs& p) {
     return Slic3r::Polygon(scaled_p);
 };
 
+BoundingBox get_extents(const Polygon &poly)
+{
+    return poly.bounding_box();
+}
+
+BoundingBox get_extents(const Polygons &polygons)
+{
+    BoundingBox bb;
+    if (! polygons.empty()) {
+        bb = get_extents(polygons.front());
+        for (size_t i = 1; i < polygons.size(); ++ i)
+            bb.merge(get_extents(polygons[i]));
+    }
+    return bb;
+}
 
 
 }
