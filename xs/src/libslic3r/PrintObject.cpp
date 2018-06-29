@@ -38,7 +38,7 @@ PrintObject::~PrintObject()
 }
 
 Print*
-PrintObject::print()
+PrintObject::print() const
 {
     return this->_print;
 }

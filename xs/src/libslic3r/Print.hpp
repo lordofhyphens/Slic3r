@@ -107,7 +107,7 @@ class PrintObject
     // TODO: Fill* fill_maker        => (is => 'lazy');
     PrintState<PrintObjectStep> state;
     
-    Print* print();
+    Print* print() const;
     ModelObject* model_object() { return this->_model_object; };
     
     Points copies() const;

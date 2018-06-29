@@ -171,16 +171,14 @@ SupportParameters::create_from_config(const PrintConfig &print_config,
 }
 
 PrintObjectSupportMaterial::PrintObjectSupportMaterial(const PrintObject *object,
-                                                       const PrintConfig *print_config,
-                                                       const PrintObjectConfig *print_object_config,
                                                        const SupportParameters &support_params) :
     m_object(object),
-    m_print_config(print_config),
-    m_object_config(print_object_config),
+    m_print_config(&object->print()->config),
+    m_object_config(&object->config),
     m_support_params(support_params),
-    m_first_layer_flow(Flow()), // TODO
-    m_support_material_flow(Flow()), // TODO @Samir55
-    m_support_material_interface_flow(Flow()) // TODO @Samir55
+    m_first_layer_flow(support_material_1st_layer_flow(object, float(support_params.first_print_layer_height))),
+    m_support_material_flow(support_material_flow(object, float(support_params.layer_height))),
+    m_support_material_interface_flow(support_material_interface_flow(object, float(support_params.layer_height)))
 {
     // Calculate a minimum support layer height as a minimum over all extruders, but not smaller than 10um.
 
@@ -355,6 +353,48 @@ PrintObjectSupportMaterial::generate_toolpaths(const PrintObject &object,
                                                const PrintObjectSupportMaterial::MyLayersPtr &interface_layers) const
 {
 
+}
+
+// TODO @Samir55 Refactor
+Flow
+support_material_flow(const PrintObject *object, float layer_height)
+{
+    return Flow::new_from_config_width(
+        frSupportMaterial,
+        // The width parameter accepted by new_from_config_width is of type ConfigOptionFloatOrPercent, the Flow class takes care of the percent to value substitution.
+        (object->config.support_material_extrusion_width.value > 0) ? object->config.support_material_extrusion_width : object->config.extrusion_width,
+        // if object->config.support_material_extruder == 0 (which means to not trigger tool change, but use the current extruder instead), get_at will return the 0th component.
+        float(object->print()->config.nozzle_diameter.get_at(object->config.support_material_extruder-1)),
+        (layer_height > 0.0f) ? layer_height : float(object->config.layer_height.value),
+        false);
+}
+
+// TODO @Samir55 Refactor.
+Flow
+support_material_1st_layer_flow(const PrintObject *object, float layer_height)
+{
+    const auto &width = (object->print()->config.first_layer_extrusion_width.value > 0) ? object->print()->config.first_layer_extrusion_width : object->config.support_material_extrusion_width;
+    return Flow::new_from_config_width(
+        frSupportMaterial,
+        // The width parameter accepted by new_from_config_width is of type ConfigOptionFloatOrPercent, the Flow class takes care of the percent to value substitution.
+        (width.value > 0) ? width : object->config.extrusion_width,
+        float(object->print()->config.nozzle_diameter.get_at(object->config.support_material_extruder-1)),
+        (layer_height > 0.0f) ? layer_height : float(object->config.first_layer_height.get_abs_value(object->config.layer_height.value)),
+        false);
+}
+
+// TODO @Samir55 Refactor.
+Flow
+support_material_interface_flow(const PrintObject *object, float layer_height)
+{
+    return Flow::new_from_config_width(
+        frSupportMaterialInterface,
+        // The width parameter accepted by new_from_config_width is of type ConfigOptionFloatOrPercent, the Flow class takes care of the percent to value substitution.
+        (object->config.support_material_extrusion_width > 0) ? object->config.support_material_extrusion_width : object->config.extrusion_width,
+        // if object->config.support_material_interface_extruder == 0 (which means to not trigger tool change, but use the current extruder instead), get_at will return the 0th component.
+        float(object->print()->config.nozzle_diameter.get_at(object->config.support_material_interface_extruder-1)),
+        (layer_height > 0.0f) ? layer_height : float(object->config.layer_height.value),
+        false);
 }
 
 }

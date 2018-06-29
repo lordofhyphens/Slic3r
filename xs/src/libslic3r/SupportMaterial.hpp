@@ -18,6 +18,7 @@ namespace Slic3r
 // TODO @Samir55, Refactor later to be phased out if possible.
 class SupportParameters
 {
+public:
     SupportParameters() { memset(this, 0, sizeof(SupportParameters)); }
 
     static SupportParameters
@@ -229,8 +230,6 @@ public:
 
 public:
     PrintObjectSupportMaterial(const PrintObject *object,
-                               const PrintConfig *print_config,
-                               const PrintObjectConfig *print_object_config,
                                const SupportParameters &support_params);
 
     /// Is raft enabled?
@@ -417,9 +416,9 @@ public:
         BoundingBox bbox = get_extents(*m_support_polygons);
         bbox.offset(20);
         bbox.align_to_grid(grid_resolution);
-        m_grid.set_bbox(bbox);
-        m_grid.create(*m_support_polygons, grid_resolution);
-        m_grid.calculate_sdf();
+//        m_grid.set_bbox(bbox);
+//        m_grid.create(*m_support_polygons, grid_resolution);
+//        m_grid.calculate_sdf();
         // Extract a bounding contour from the grid, trim by the object.
         m_island_samples = island_samples(*m_support_polygons);
     }
@@ -434,9 +433,7 @@ public:
     extract_support(const coord_t offset_in_grid)
     {
         // Generate islands, so each island may be tested for overlap with m_island_samples.
-        ExPolygons islands = diff_ex(
-            m_grid.contours_simplified(offset_in_grid),
-            *m_trimming_polygons, false);
+        ExPolygons islands ;
 
         // Extract polygons, which contain some of the m_island_samples.
         Polygons out;
@@ -569,9 +566,14 @@ private:
     coordf_t m_support_angle; ///< Angle in radians, by which the whole support is rotated.
     coordf_t m_support_spacing; ///< X spacing of the support lines parallel with the Y axis.
 
-    Slic3r::EdgeGrid::Grid m_grid;
+//    Slic3r::EdgeGrid::Grid m_grid;
     Points m_island_samples;
 };
+
+// Create support flow objects.
+extern Flow support_material_flow(const PrintObject *object, float layer_height = 0.0f);
+extern Flow support_material_1st_layer_flow(const PrintObject *object, float layer_height = 0.0f);
+extern Flow support_material_interface_flow(const PrintObject *object, float layer_height = 0.0f);
 
 }
 
