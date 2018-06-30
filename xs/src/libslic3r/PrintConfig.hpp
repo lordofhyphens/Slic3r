@@ -189,6 +189,8 @@ class PrintObjectConfig : public virtual StaticPrintConfig
     ConfigOptionFloat               xy_size_compensation;
     ConfigOptionInt                 sequential_print_priority;
     ConfigOptionFloatOrPercent      support_material_xy_spacing;
+    ConfigOptionBool                support_material_synchronize_layers;
+    ConfigOptionBool                 support_material_interface_contact_loops;
 
     PrintObjectConfig(bool initialize = true) : StaticPrintConfig() {
         if (initialize)

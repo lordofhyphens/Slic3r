@@ -245,15 +245,15 @@ public:
     bool
     build_plate_only() const;
 
-    /// TODO @Samir55 ASK.
-//    bool
-//    synchronize_layers() const;
-
-    /// TODO @Samir55 ASK.
     ///
     /// \return
-//    bool
-//    has_contact_loops() const;
+    bool
+    synchronize_layers() const;
+
+    ///
+    /// \return
+    bool
+    has_contact_loops() const;
 
     /// Generate support material for the object.
     /// New support layers will be added to the object,
