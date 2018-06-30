@@ -7,7 +7,8 @@ namespace Slic3r
 /// \param print_config
 /// \param idx_nozzle
 /// \return
-inline coordf_t min_layer_height_from_nozzle(const PrintConfig &print_config, int idx_nozzle)
+inline coordf_t
+min_layer_height_from_nozzle(const PrintConfig &print_config, int idx_nozzle)
 {
     coordf_t min_layer_height = print_config.min_layer_height.get_at(idx_nozzle - 1);
     return (min_layer_height == 0.0) ? MIN_LAYER_HEIGHT_DEFAULT : std::max(MIN_LAYER_HEIGHT, min_layer_height);
@@ -18,11 +19,12 @@ inline coordf_t min_layer_height_from_nozzle(const PrintConfig &print_config, in
 /// \param print_config
 /// \param idx_nozzle
 /// \return
-inline coordf_t max_layer_height_from_nozzle(const PrintConfig &print_config, int idx_nozzle)
+inline coordf_t
+max_layer_height_from_nozzle(const PrintConfig &print_config, int idx_nozzle)
 {
     coordf_t min_layer_height = min_layer_height_from_nozzle(print_config, idx_nozzle);
     coordf_t max_layer_height = print_config.max_layer_height.get_at(idx_nozzle - 1);
-    coordf_t nozzle_dmr       = print_config.nozzle_diameter.get_at(idx_nozzle - 1);
+    coordf_t nozzle_dmr = print_config.nozzle_diameter.get_at(idx_nozzle - 1);
     return std::max(min_layer_height, (max_layer_height == 0.) ? (0.75 * nozzle_dmr) : max_layer_height);
 }
 
@@ -44,7 +46,8 @@ SupportParameters::create_from_config(const PrintConfig &print_config,
         print_config.nozzle_diameter.get_at(static_cast<size_t>(object_config.support_material_extruder.value - 1));
 
     coordf_t support_material_interface_extruder_dmr =
-        print_config.nozzle_diameter.get_at(static_cast<size_t>(object_config.support_material_interface_extruder.value - 1));
+        print_config.nozzle_diameter.get_at(static_cast<size_t>(object_config.support_material_interface_extruder.value
+            - 1));
 
 
     // Is the support of soluble type.
@@ -90,7 +93,9 @@ SupportParameters::create_from_config(const PrintConfig &print_config,
     {
         params.min_layer_height = std::max(params.min_layer_height, min_layer_height_from_nozzle(print_config, 0));
         params.max_layer_height = std::min(params.max_layer_height, max_layer_height_from_nozzle(print_config, 0));
-    } else {
+    }
+    else
+    {
         for (unsigned int extruder_id : object_extruders)
         {
             params.min_layer_height =
@@ -181,8 +186,44 @@ PrintObjectSupportMaterial::PrintObjectSupportMaterial(const PrintObject *object
     m_support_material_interface_flow(support_material_interface_flow(object, float(support_params.layer_height)))
 {
     // Calculate a minimum support layer height as a minimum over all extruders, but not smaller than 10um.
+    m_support_layer_height_min = 1000000.0;
+    for (auto lh : m_print_config->min_layer_height.values)
+        m_support_layer_height_min = min(m_support_layer_height_min, max(0.1, lh));
 
+    // if no interface layers allowed, print everything with the base support pattern.
+    if (m_object_config->support_material_interface_layers.value == 0)
+        m_support_material_interface_flow = m_support_material_flow;
+
+    // TODO @Samir55 what's region ?
     // Evaluate the XY gap between the object outer perimeters and the support structures.
+    coordf_t external_perimeter_width = 0.0;
+    for (size_t region_id = 0; region_id < object->region_volumes.size(); ++region_id)
+    {
+        if (object->region_volumes.count(region_id) > 0 && !object->region_volumes.at(region_id).empty())
+        {
+            const PrintRegionConfig &config = object->print()->get_region(region_id)->config;
+            coordf_t width = config.external_perimeter_extrusion_width.get_abs_value(m_support_params.layer_height);
+            if (width <= 0.0)
+                width = m_print_config->nozzle_diameter.get_at(config.perimeter_extruder - 1);
+            external_perimeter_width = std::max(external_perimeter_width, width);
+        }
+    }
+    m_gap_xy = m_object_config->support_material_xy_spacing.get_abs_value(external_perimeter_width);
+
+    // TODO @Samir see later.
+    m_can_merge_support_regions =
+        m_object_config->support_material_extruder.value == m_object_config->support_material_interface_extruder.value;
+    if (!m_can_merge_support_regions && (m_object_config->support_material_extruder.value == 0
+        || m_object_config->support_material_interface_extruder.value == 0))
+    {
+        // One of the support extruders is of "don't care" type.
+        auto object_extruders = m_object->print()->object_extruders();
+        if (object_extruders.size() == 1 &&
+            *object_extruders.begin() == std::max<unsigned int>(m_object_config->support_material_extruder.value,
+                                                                m_object_config->support_material_interface_extruder.value))
+            // Object is printed with the same extruder as the support.
+            m_can_merge_support_regions = true;
+    }
 }
 
 /// TODO @Samir55
@@ -247,37 +288,52 @@ PrintObjectSupportMaterial::generate(PrintObject &object)
 bool
 PrintObjectSupportMaterial::has_raft() const
 {
-    return false;
+    return m_support_params.has_raft();
 }
 
 bool
 PrintObjectSupportMaterial::has_support() const
 {
-    return false;
+    return m_object_config->support_material.value;
 }
 
 bool
 PrintObjectSupportMaterial::build_plate_only() const
 {
-    return false;
+    return this->has_support() && m_object_config->support_material_buildplate_only.value;
 }
 
-bool
-PrintObjectSupportMaterial::synchronize_layers() const
-{
-    return false;
-}
+// TODO @Samir55 Add it.
+//bool
+//PrintObjectSupportMaterial::synchronize_layers() const
+//{
+//    return m_support_params.soluble_interface && m_object_config->support_material_synchronize_layers.value;
+//}
 
-bool
-PrintObjectSupportMaterial::has_contact_loops() const
-{
-    return false;
-}
+//bool
+//PrintObjectSupportMaterial::has_contact_loops() const
+//{
+//    return m_object_config->support_material_interface_contact_loops.value;
+//}
 
 PrintObjectSupportMaterial::MyLayersPtr
 PrintObjectSupportMaterial::top_contact_layers(const PrintObject &object,
                                                PrintObjectSupportMaterial::MyLayerStorage &layer_storage) const
 {
+    // Output layers, sorted by top Z.
+
+    // If user specified a custom angle threshold, convert it to radians.
+    // Zero means automatic overhang detection.
+
+    // Build support on a build plate only? If so, then collect and union all the surfaces below the current layer.
+    // Unfortunately this is an inherently serial process.
+
+    // Determine top contact areas.
+    // If generating raft only (no support), only calculate top contact areas for the 0th layer.
+    // If having a raft, start with 0th layer, otherwise with 1st layer.
+    // Note that layer_id < layer->id when raft_layers > 0 as the layer->id incorporates the raft layers.
+    // So layer_id == 0 means first object layer and layer->id == 0 means first print layer if there are no explicit raft layers.
+
     return Slic3r::PrintObjectSupportMaterial::MyLayersPtr();
 }
 
@@ -362,9 +418,10 @@ support_material_flow(const PrintObject *object, float layer_height)
     return Flow::new_from_config_width(
         frSupportMaterial,
         // The width parameter accepted by new_from_config_width is of type ConfigOptionFloatOrPercent, the Flow class takes care of the percent to value substitution.
-        (object->config.support_material_extrusion_width.value > 0) ? object->config.support_material_extrusion_width : object->config.extrusion_width,
+        (object->config.support_material_extrusion_width.value > 0) ? object->config.support_material_extrusion_width
+                                                                    : object->config.extrusion_width,
         // if object->config.support_material_extruder == 0 (which means to not trigger tool change, but use the current extruder instead), get_at will return the 0th component.
-        float(object->print()->config.nozzle_diameter.get_at(object->config.support_material_extruder-1)),
+        float(object->print()->config.nozzle_diameter.get_at(object->config.support_material_extruder - 1)),
         (layer_height > 0.0f) ? layer_height : float(object->config.layer_height.value),
         false);
 }
@@ -373,13 +430,16 @@ support_material_flow(const PrintObject *object, float layer_height)
 Flow
 support_material_1st_layer_flow(const PrintObject *object, float layer_height)
 {
-    const auto &width = (object->print()->config.first_layer_extrusion_width.value > 0) ? object->print()->config.first_layer_extrusion_width : object->config.support_material_extrusion_width;
+    const auto &width = (object->print()->config.first_layer_extrusion_width.value > 0)
+                        ? object->print()->config.first_layer_extrusion_width
+                        : object->config.support_material_extrusion_width;
     return Flow::new_from_config_width(
         frSupportMaterial,
         // The width parameter accepted by new_from_config_width is of type ConfigOptionFloatOrPercent, the Flow class takes care of the percent to value substitution.
         (width.value > 0) ? width : object->config.extrusion_width,
-        float(object->print()->config.nozzle_diameter.get_at(object->config.support_material_extruder-1)),
-        (layer_height > 0.0f) ? layer_height : float(object->config.first_layer_height.get_abs_value(object->config.layer_height.value)),
+        float(object->print()->config.nozzle_diameter.get_at(object->config.support_material_extruder - 1)),
+        (layer_height > 0.0f) ? layer_height
+                              : float(object->config.first_layer_height.get_abs_value(object->config.layer_height.value)),
         false);
 }
 
@@ -390,9 +450,10 @@ support_material_interface_flow(const PrintObject *object, float layer_height)
     return Flow::new_from_config_width(
         frSupportMaterialInterface,
         // The width parameter accepted by new_from_config_width is of type ConfigOptionFloatOrPercent, the Flow class takes care of the percent to value substitution.
-        (object->config.support_material_extrusion_width > 0) ? object->config.support_material_extrusion_width : object->config.extrusion_width,
+        (object->config.support_material_extrusion_width > 0) ? object->config.support_material_extrusion_width
+                                                              : object->config.extrusion_width,
         // if object->config.support_material_interface_extruder == 0 (which means to not trigger tool change, but use the current extruder instead), get_at will return the 0th component.
-        float(object->print()->config.nozzle_diameter.get_at(object->config.support_material_interface_extruder-1)),
+        float(object->print()->config.nozzle_diameter.get_at(object->config.support_material_interface_extruder - 1)),
         (layer_height > 0.0f) ? layer_height : float(object->config.layer_height.value),
         false);
 }

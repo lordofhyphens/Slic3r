@@ -246,14 +246,14 @@ public:
     build_plate_only() const;
 
     /// TODO @Samir55 ASK.
-    bool
-    synchronize_layers() const;
+//    bool
+//    synchronize_layers() const;
 
     /// TODO @Samir55 ASK.
     ///
     /// \return
-    bool
-    has_contact_loops() const;
+//    bool
+//    has_contact_loops() const;
 
     /// Generate support material for the object.
     /// New support layers will be added to the object,
@@ -399,7 +399,7 @@ public:
         coordf_t support_spacing,
         coordf_t support_angle) :
         m_support_polygons(&support_polygons), m_trimming_polygons(&trimming_polygons),
-        m_support_spacing(support_spacing), m_support_angle(support_angle)
+        m_support_angle(support_angle), m_support_spacing(support_spacing)
     {
         if (m_support_angle != 0.0)
         {

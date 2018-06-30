@@ -188,7 +188,8 @@ class PrintObjectConfig : public virtual StaticPrintConfig
     ConfigOptionFloatOrPercent      support_material_threshold;
     ConfigOptionFloat               xy_size_compensation;
     ConfigOptionInt                 sequential_print_priority;
-    
+    ConfigOptionFloatOrPercent      support_material_xy_spacing;
+
     PrintObjectConfig(bool initialize = true) : StaticPrintConfig() {
         if (initialize)
             this->set_defaults();

@@ -310,7 +310,8 @@ class ConfigOptionFloatOrPercent : public ConfigOptionPercent
             this->percent = other->percent;
         }
     };
-    
+
+    // TODO @Samir55 ASK
     double get_abs_value(double ratio_over) const {
         if (this->percent) {
             return ratio_over * this->value / 100;
