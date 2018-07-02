@@ -89,6 +89,7 @@ struct MyLayersPtrCompare
     }
 };
 
+// TODO @Samir55
 void
 PrintObjectSupportMaterial::generate(PrintObject &object)
 {
@@ -125,6 +126,7 @@ PrintObjectSupportMaterial::has_contact_loops() const
     return m_object_config->support_material_interface_contact_loops.value;
 }
 
+// TODO @Samir55
 PrintObjectSupportMaterial::MyLayersPtr
 PrintObjectSupportMaterial::top_contact_layers(const PrintObject &object,
                                                PrintObjectSupportMaterial::MyLayerStorage &layer_storage) const
@@ -146,6 +148,7 @@ PrintObjectSupportMaterial::top_contact_layers(const PrintObject &object,
     return Slic3r::PrintObjectSupportMaterial::MyLayersPtr();
 }
 
+// TODO @Samir55
 PrintObjectSupportMaterial::MyLayersPtr
 PrintObjectSupportMaterial::bottom_contact_layers_and_layer_support_areas(const PrintObject &object,
                                                                           const PrintObjectSupportMaterial::MyLayersPtr &top_contacts,
@@ -155,6 +158,7 @@ PrintObjectSupportMaterial::bottom_contact_layers_and_layer_support_areas(const 
     return Slic3r::PrintObjectSupportMaterial::MyLayersPtr();
 }
 
+// TODO @Samir55
 void
 PrintObjectSupportMaterial::trim_top_contacts_by_bottom_contacts(const PrintObject &object,
                                                                  const PrintObjectSupportMaterial::MyLayersPtr &bottom_contacts,
@@ -163,6 +167,7 @@ PrintObjectSupportMaterial::trim_top_contacts_by_bottom_contacts(const PrintObje
 
 }
 
+// TODO @Samir55
 PrintObjectSupportMaterial::MyLayersPtr
 PrintObjectSupportMaterial::raft_and_intermediate_support_layers(const PrintObject &object,
                                                                  const PrintObjectSupportMaterial::MyLayersPtr &bottom_contacts,
@@ -172,6 +177,7 @@ PrintObjectSupportMaterial::raft_and_intermediate_support_layers(const PrintObje
     return Slic3r::PrintObjectSupportMaterial::MyLayersPtr();
 }
 
+// TODO @Samir55
 void
 PrintObjectSupportMaterial::generate_base_layers(const PrintObject &object,
                                                  const PrintObjectSupportMaterial::MyLayersPtr &bottom_contacts,
@@ -181,6 +187,8 @@ PrintObjectSupportMaterial::generate_base_layers(const PrintObject &object,
 {
 
 }
+
+// TODO @Samir55
 PrintObjectSupportMaterial::MyLayersPtr
 PrintObjectSupportMaterial::generate_raft_base(const PrintObjectSupportMaterial::MyLayersPtr &top_contacts,
                                                const PrintObjectSupportMaterial::MyLayersPtr &interface_layers,
@@ -190,6 +198,7 @@ PrintObjectSupportMaterial::generate_raft_base(const PrintObjectSupportMaterial:
     return Slic3r::PrintObjectSupportMaterial::MyLayersPtr();
 }
 
+// TODO @Samir55
 PrintObjectSupportMaterial::MyLayersPtr
 PrintObjectSupportMaterial::generate_interface_layers(const PrintObjectSupportMaterial::MyLayersPtr &bottom_contacts,
                                                       const PrintObjectSupportMaterial::MyLayersPtr &top_contacts,
@@ -199,6 +208,7 @@ PrintObjectSupportMaterial::generate_interface_layers(const PrintObjectSupportMa
     return Slic3r::PrintObjectSupportMaterial::MyLayersPtr();
 }
 
+// TODO @Samir55
 void
 PrintObjectSupportMaterial::trim_support_layers_by_object(const PrintObject &object,
                                                           PrintObjectSupportMaterial::MyLayersPtr &support_layers,
@@ -209,6 +219,7 @@ PrintObjectSupportMaterial::trim_support_layers_by_object(const PrintObject &obj
 
 }
 
+// TODO @Samir55
 void
 PrintObjectSupportMaterial::generate_toolpaths(const PrintObject &object,
                                                const PrintObjectSupportMaterial::MyLayersPtr &raft_layers,
