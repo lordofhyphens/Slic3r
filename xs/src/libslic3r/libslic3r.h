@@ -113,6 +113,14 @@ parallelize(T start, T end, boost::function<void(T)> func,
     parallelize(queue, func, threads_count);
 }
 
+template <typename T>
+inline void remove_nulls(std::vector<T*> &vec)
+{
+    vec.erase(
+        std::remove_if(vec.begin(), vec.end(), [](const T *ptr) { return ptr == nullptr; }),
+        vec.end());
+}
+
 } // namespace Slic3r
 
 using namespace Slic3r;

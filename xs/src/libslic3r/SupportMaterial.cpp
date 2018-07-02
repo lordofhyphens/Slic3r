@@ -126,26 +126,56 @@ PrintObjectSupportMaterial::has_contact_loops() const
     return m_object_config->support_material_interface_contact_loops.value;
 }
 
-// TODO @Samir55
 PrintObjectSupportMaterial::MyLayersPtr
 PrintObjectSupportMaterial::top_contact_layers(const PrintObject &object,
                                                PrintObjectSupportMaterial::MyLayerStorage &layer_storage) const
 {
     // Output layers, sorted by top Z.
+    MyLayersPtr contact_out;
 
     // If user specified a custom angle threshold, convert it to radians.
     // Zero means automatic overhang detection.
+    const double threshold_rad = (m_object_config->support_material_threshold.value > 0) ?
+                                 M_PI * (m_object_config->support_material_threshold.value + 1) / 180. : // +1 makes the threshold inclusive
+                                 0.; //TODO @Samir55 Check.
+
 
     // Build support on a build plate only? If so, then collect and union all the surfaces below the current layer.
-    // Unfortunately this is an inherently serial process.
+    // Unfortunately this is an inherently a sequential process.
+    const bool            build_plate_only = this->build_plate_only();
+    std::vector<Polygons> build_plate_covered;
+    if (build_plate_only) {
+        build_plate_covered.assign(object.layers.size(), Polygons());
+        for (size_t layer_id = 1; layer_id < object.layers.size(); ++ layer_id) {
+            const Layer &lower_layer = *object.layers[layer_id-1];
+            // Merge the new slices with the preceding slices.
+            // Apply the safety offset to the newly added polygons, so they will connect
+            // with the polygons collected before,
+            // but don't apply the safety offset during the union operation as it would
+            // inflate the polygons over and over.
+            Polygons &covered = build_plate_covered[layer_id];
+            covered = build_plate_covered[layer_id - 1];
+            polygons_append(covered, offset(lower_layer.slices.expolygons, scale_(0.01)));
+            covered = union_(covered, false); // don't apply the safety offset.
+        }
+    }
 
     // Determine top contact areas.
     // If generating raft only (no support), only calculate top contact areas for the 0th layer.
     // If having a raft, start with 0th layer, otherwise with 1st layer.
     // Note that layer_id < layer->id when raft_layers > 0 as the layer->id incorporates the raft layers.
     // So layer_id == 0 means first object layer and layer->id == 0 means first print layer if there are no explicit raft layers.
+    size_t num_layers = this->has_support() ? object.layer_count() : 1;
+    tbb::spin_mutex layer_storage_mutex;
+    tbb::parallel_for(tbb::blocked_range<size_t>(this->has_raft() ? 0 : 1, num_layers),
+                      [this, &object, &build_plate_covered, threshold_rad, &layer_storage, &layer_storage_mutex, &contact_out](const tbb::blocked_range<size_t>& range) {
+        
+    });
 
-    return Slic3r::PrintObjectSupportMaterial::MyLayersPtr();
+    // Compress contact_out, remove the nullptr items.
+    remove_nulls(contact_out);
+
+    return contact_out;
 }
 
 // TODO @Samir55

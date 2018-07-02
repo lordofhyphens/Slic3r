@@ -8,6 +8,11 @@
 #include "Print.hpp"
 #include "EdgeGrid.hpp"
 
+#include <tbb/parallel_for.h>
+#include <tbb/atomic.h>
+#include <tbb/spin_mutex.h>
+#include <tbb/task_group.h>
+
 #define MIN_LAYER_HEIGHT 0.01
 #define MIN_LAYER_HEIGHT_DEFAULT 0.07
 
