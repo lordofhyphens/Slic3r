@@ -1,3 +1,4 @@
+#include <cfloat>
 #include "EdgeGrid.hpp"
 
 namespace Slic3r

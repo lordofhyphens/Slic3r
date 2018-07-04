@@ -163,4 +163,12 @@ PrintRegion::invalidate_state_by_config(const PrintConfigBase &config)
     return invalidated;
 }
 
+coordf_t
+PrintRegion::nozzle_dmr_avg(const PrintConfig &print_config) const
+{
+    return (print_config.nozzle_diameter.get_at(this->config.perimeter_extruder.value    - 1) +
+        print_config.nozzle_diameter.get_at(this->config.infill_extruder.value       - 1) +
+        print_config.nozzle_diameter.get_at(this->config.solid_infill_extruder.value - 1)) / 3.;
+}
+
 }

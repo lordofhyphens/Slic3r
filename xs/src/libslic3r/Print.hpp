@@ -61,6 +61,7 @@ class PrintRegion
     Print* print();
     Flow flow(FlowRole role, double layer_height, bool bridge, bool first_layer, double width, const PrintObject &object) const;
     bool invalidate_state_by_config(const PrintConfigBase &config);
+    coordf_t nozzle_dmr_avg(const PrintConfig &print_config) const;
 
     private:
     Print* _print;

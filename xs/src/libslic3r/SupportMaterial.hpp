@@ -7,6 +7,7 @@
 #include "PrintConfig.hpp"
 #include "Print.hpp"
 #include "EdgeGrid.hpp"
+#include "Geometry.hpp"
 
 #include <tbb/parallel_for.h>
 #include <tbb/atomic.h>
@@ -15,6 +16,11 @@
 
 #define MIN_LAYER_HEIGHT 0.01
 #define MIN_LAYER_HEIGHT_DEFAULT 0.07
+
+#define SUPPORT_SURFACES_OFFSET_PARAMETERS ClipperLib::jtSquare, 0.
+
+// Increment used to reach MARGIN in steps to avoid trespassing thin objects
+#define NUM_MARGIN_STEPS 3
 
 using namespace std;
 
