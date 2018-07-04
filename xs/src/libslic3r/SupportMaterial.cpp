@@ -126,6 +126,17 @@ PrintObjectSupportMaterial::has_contact_loops() const
     return m_object_config->support_material_interface_contact_loops.value;
 }
 
+// TODO @Samir55 move to Polygons
+inline void polygons_append(Polygons &dst, Polygons &&src)
+{
+    if (dst.empty()) {
+        dst = std::move(src);
+    } else {
+        std::move(std::begin(src), std::end(src), std::back_inserter(dst));
+        src.clear();
+    }
+}
+
 PrintObjectSupportMaterial::MyLayersPtr
 PrintObjectSupportMaterial::top_contact_layers(const PrintObject &object,
                                                PrintObjectSupportMaterial::MyLayerStorage &layer_storage) const

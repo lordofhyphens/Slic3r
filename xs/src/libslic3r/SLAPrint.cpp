@@ -177,7 +177,7 @@ SLAPrint::_infill_layer(size_t i, const Fill* _fill)
     if (internal.empty()) return;
     layer.solid = false;
     
-    const Polygons infill = offset(layer.slices, -scale_(shell_thickness));
+    const Polygons infill = offset(layer.slices, -scale_(shell_thickness), CLIPPER_OFFSET_SCALE, ClipperLib::jtMiter, 3);
     
     // Generate solid infill
     layer.solid_infill << diff_ex(infill, internal, true);
@@ -201,7 +201,7 @@ SLAPrint::_infill_layer(size_t i, const Fill* _fill)
     // Generate perimeter(s).
     layer.perimeters << diff_ex(
         layer.slices,
-        offset(layer.slices, -scale_(shell_thickness))
+        offset(layer.slices, -scale_(shell_thickness), CLIPPER_OFFSET_SCALE, ClipperLib::jtMiter, 3)
     );
 }
 

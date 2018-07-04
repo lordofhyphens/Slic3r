@@ -904,7 +904,7 @@ void PrintObject::_slice()
             for (LayerRegion* layerm : layer->regions)
                 layerm->slices.set(
                     intersection_ex(
-                        offset(layerm->slices, +delta),
+                        offset(layerm->slices, +delta, CLIPPER_OFFSET_SCALE, ClipperLib::jtMiter, 3),
                         layer->slices
                     ),
                     stInternal
@@ -994,7 +994,10 @@ PrintObject::_make_perimeters()
             // perimeter, since it's not truly covering this layer.
             const Polygons upper_layerm_polygons = offset(
                 upper_layerm.slices,
-                -upper_layerm.flow(frExternalPerimeter).scaled_width()/2
+                -upper_layerm.flow(frExternalPerimeter).scaled_width()/2,
+                CLIPPER_OFFSET_SCALE,
+                ClipperLib::jtMiter,
+                3
             );
             
             // Filter upper layer polygons in intersection_ppl by their bounding boxes?

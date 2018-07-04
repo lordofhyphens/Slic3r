@@ -360,7 +360,7 @@ private:
 class ClipperOffset 
 {
 public:
-  ClipperOffset(double miterLimit = 2.0, double roundPrecision = 0.25);
+  ClipperOffset(double miterLimit = 2.0, double roundPrecision = 0.25, double shortestEdgeLength = 0.0);
   ~ClipperOffset();
   void AddPath(const Path& path, JoinType joinType, EndType endType);
   void AddPaths(const Paths& paths, JoinType joinType, EndType endType);
@@ -369,6 +369,7 @@ public:
   void Clear();
   double MiterLimit;
   double ArcTolerance;
+  double shortestEdgeLength;
 private:
   Paths m_destPolys;
   Path m_srcPoly;
