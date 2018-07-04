@@ -65,6 +65,7 @@ set(LIBDIR ${CMAKE_CURRENT_SOURCE_DIR}/../xs/src/)
 set(GUI_LIBDIR ${CMAKE_CURRENT_SOURCE_DIR}/GUI/)
 set(TESTDIR ${CMAKE_CURRENT_SOURCE_DIR}/test)
 set(GUI_TESTDIR ${CMAKE_CURRENT_SOURCE_DIR}/test/GUI/)
+set(CLI_TESTDIR ${CMAKE_CURRENT_SOURCE_DIR}/test/libslic3r/)
 
 include_directories(${LIBDIR})
 include_directories(${LIBDIR}/libslic3r)
@@ -80,7 +81,7 @@ include_directories(${LIBDIR}/poly2tri/common)
 add_library(ZipArchive STATIC
     ${LIBDIR}/Zip/ZipArchive.cpp
 )
-
+target_compile_features(ZipArchive PUBLIC cxx_std_11)
 
 add_library(libslic3r STATIC
     ${LIBDIR}/libslic3r/BoundingBox.cpp
@@ -159,6 +160,8 @@ add_library(admesh STATIC
 set_property(TARGET admesh PROPERTY C_STANDARD 99)
 
 add_library(clipper STATIC ${LIBDIR}/clipper.cpp)
+target_compile_features(clipper PUBLIC cxx_std_11)
+
 add_library(expat STATIC
     ${LIBDIR}/expat/xmlparse.c
     ${LIBDIR}/expat/xmlrole.c
@@ -181,6 +184,11 @@ set(UI_TEST_SOURCES
     ${GUI_TESTDIR}/test_field_checkbox.cpp
     ${GUI_TESTDIR}/test_field_spinctrl.cpp
 )
+
+set(CLI_TEST_SOURCES
+    ${CLI_TESTDIR}/test_support_material.cpp
+)
+
 set(SLIC3R_TEST_SOURCES
     ${TESTDIR}/test_harness.cpp
 )
