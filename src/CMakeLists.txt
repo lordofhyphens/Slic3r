@@ -82,6 +82,8 @@ add_library(ZipArchive STATIC
 )
 target_compile_features(ZipArchive PUBLIC cxx_std_11)
 
+
+
 add_library(libslic3r STATIC
     ${LIBDIR}/libslic3r/BoundingBox.cpp
     ${LIBDIR}/libslic3r/BridgeDetector.cpp
@@ -182,12 +184,19 @@ set(UI_TEST_SOURCES
     ${GUI_TESTDIR}/test_harness_gui.cpp
     ${GUI_TESTDIR}/test_field_checkbox.cpp
     ${GUI_TESTDIR}/test_field_spinctrl.cpp
+    ${GUI_TESTDIR}/test_field_textbox.cpp
+    ${GUI_TESTDIR}/test_field_choice.cpp
+    ${GUI_TESTDIR}/test_field_numchoice.cpp
+    ${GUI_TESTDIR}/test_field_point.cpp
+    ${GUI_TESTDIR}/test_field_point3.cpp
+    ${GUI_TESTDIR}/test_misc_ui.cpp
 )
 
 set(SLIC3R_TEST_SOURCES
     ${TESTDIR}/test_harness.cpp
     ${TESTDIR}/libslic3r/test_support_material.cpp
-        test/libslic3r/test_utils.hpp)
+)
+
 add_executable(slic3r slic3r.cpp)
 #set_target_properties(slic3r PROPERTIES LINK_SEARCH_START_STATIC 1)
 #set_target_properties(slic3r PROPERTIES LINK_SEARCH_END_STATIC 1)
@@ -263,6 +272,10 @@ IF(wxWidgets_FOUND)
     ${GUI_LIBDIR}/ProgressStatusBar.cpp
     ${GUI_LIBDIR}/Settings.cpp
     ${GUI_LIBDIR}/misc_ui.cpp
+    ${GUI_LIBDIR}/OptionsGroup/UI_NumChoice.cpp
+    ${GUI_LIBDIR}/OptionsGroup/UI_Choice.cpp
+    ${GUI_LIBDIR}/OptionsGroup/UI_Point.cpp
+    ${GUI_LIBDIR}/OptionsGroup/UI_Point3.cpp
     )
     target_compile_features(slic3r_gui PUBLIC cxx_std_14)
     #only build GUI lib if building with wx

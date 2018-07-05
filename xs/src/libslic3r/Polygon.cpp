@@ -318,5 +318,4 @@ BoundingBox get_extents(const Polygons &polygons)
     return bb;
 }
 
-
 }
