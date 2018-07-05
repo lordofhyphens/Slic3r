@@ -59,7 +59,6 @@ Slic3r::Polygons offset(const Slic3r::Polylines &polylines, const float delta,
     double scale = CLIPPER_OFFSET_SCALE, ClipperLib::JoinType joinType = ClipperLib::jtSquare, 
     double miterLimit = 3);
 
-// TODO @Samir55 out it in .cpp file.
 ClipperLib::Paths _offset(ClipperLib::Paths &&input, ClipperLib::EndType endType, const float delta, ClipperLib::JoinType joinType, double miterLimit);
 
 // This is a safe variant of the polygons offset, tailored for multiple ExPolygons.

@@ -65,7 +65,6 @@ set(LIBDIR ${CMAKE_CURRENT_SOURCE_DIR}/../xs/src/)
 set(GUI_LIBDIR ${CMAKE_CURRENT_SOURCE_DIR}/GUI/)
 set(TESTDIR ${CMAKE_CURRENT_SOURCE_DIR}/test)
 set(GUI_TESTDIR ${CMAKE_CURRENT_SOURCE_DIR}/test/GUI/)
-set(CLI_TESTDIR ${CMAKE_CURRENT_SOURCE_DIR}/test/libslic3r/)
 
 include_directories(${LIBDIR})
 include_directories(${LIBDIR}/libslic3r)
@@ -185,13 +184,10 @@ set(UI_TEST_SOURCES
     ${GUI_TESTDIR}/test_field_spinctrl.cpp
 )
 
-set(CLI_TEST_SOURCES
-    ${CLI_TESTDIR}/test_support_material.cpp
-)
-
 set(SLIC3R_TEST_SOURCES
     ${TESTDIR}/test_harness.cpp
-)
+    ${TESTDIR}/libslic3r/test_support_material.cpp
+        test/libslic3r/test_utils.hpp)
 add_executable(slic3r slic3r.cpp)
 #set_target_properties(slic3r PROPERTIES LINK_SEARCH_START_STATIC 1)
 #set_target_properties(slic3r PROPERTIES LINK_SEARCH_END_STATIC 1)
@@ -231,6 +227,7 @@ set(LIBSLIC3R_DEPENDS
     polypartition
     poly2tri
     ZipArchive
+    tbb
     ${Boost_LIBRARIES}
 )
 
