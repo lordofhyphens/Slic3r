@@ -6,7 +6,7 @@
 #include "SupportMaterial.hpp"
 
 // Check that supports are not created for object that doesn't need support.
-TEST_CASE("Supports_Tests_template", "TEST")
+TEST_CASE("Supports_Test_1", "T1")
 {
     // Create a mesh & modelObject.
     Model model = model.read_from_file("../src/test/models/CubeShape.3mf");
@@ -35,4 +35,33 @@ TEST_CASE("Supports_Tests_template", "TEST")
     print.get_object(0)->_generate_support_material();
 
     REQUIRE(print.get_object(0)->support_layer_count() == 3);
+}
+
+// Check intermediate support material shall be extruded at a layer height of maximum_support_layer_height
+// The default is 0.8 * nozzle diameter.
+TEST_CASE("Supports_Test_2", "T2") {
+    // Create a mesh.
+    TriangleMesh mesh = TestUtils::init_print("overhangs");
+
+    // Create modelObject.
+    Model model;
+    ModelObject* object = model.add_object();
+    object->add_volume(mesh);
+    model.add_default_instances();
+
+    // Align to origin.
+    model.align_instances_to_origin();
+
+    // Create Print.
+    Print print = Print();
+    print.config.set_deserialize("nozzle_diameter", "0.4");
+    print.default_object_config.set_deserialize("raft_layers", "0");
+
+    print.reload_object(0);
+    print.get_object(0)->_slice();
+    print.get_object(0)->_generate_support_material();
+
+    REQUIRE(print.get_object(0)->support_layer_count() > 0);
+
+    REQUIRE(abs(print.get_object(0)->support_layers[1]->height - 0.4 * 0.8) < EPSILON);
 }
