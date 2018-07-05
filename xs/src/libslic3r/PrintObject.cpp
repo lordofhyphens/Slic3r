@@ -775,7 +775,6 @@ void PrintObject::_slice()
         if(this->config.support_material_contact_distance > 0) {
             first_layer_height = min_support_nozzle_diameter;
             raft_height += this->config.support_material_contact_distance;
-
         }
     }
 
@@ -1097,5 +1096,21 @@ PrintObject::_infill()
     
     this->state.set_done(posInfill);
 }
+
+SupportParameters
+PrintObject::support_parameters() const
+{
+    return SupportParameters::create_from_config(
+        this->print()->config, this->config,
+        unscale(this->size.z), this->print()->object_extruders());
+}
+
+void
+PrintObject::_generate_support_material()
+{
+    PrintObjectSupportMaterial support_material(this, PrintObject::support_parameters());
+    support_material.generate(*this);
+}
+
 
 }

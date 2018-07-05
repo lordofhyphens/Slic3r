@@ -2,21 +2,21 @@
 #define slic3r_Print_hpp_
 
 #include "libslic3r.h"
-#include <set>
+#include <boost/thread.hpp>
+#include <exception>
 #include <string>
 #include <vector>
-#include <boost/thread.hpp>
+#include <set>
 #include "BoundingBox.hpp"
 #include "Flow.hpp"
-#include "PrintConfig.hpp"
-#include "Point.hpp"
 #include "Layer.hpp"
+#include "LayerHeightSpline.hpp"
 #include "Model.hpp"
 #include "PlaceholderParser.hpp"
+#include "Point.hpp"
+#include "PrintConfig.hpp"
 #include "SlicingAdaptive.hpp"
-#include "LayerHeightSpline.hpp"
-
-#include <exception>
+#include "SupportMaterial.hpp"
 
 namespace Slic3r {
 
@@ -25,6 +25,7 @@ class InvalidObjectException : public std::exception {};
 class Print;
 class PrintObject;
 class ModelObject;
+class SupportParameters;
 
 // Print step IDs for keeping track of the print state.
 enum PrintStep {
@@ -155,6 +156,10 @@ class PrintObject
     std::vector<ExPolygons> _slice_region(size_t region_id, std::vector<float> z, bool modifier);
     void _make_perimeters();
     void _infill();
+
+    // Supports functions.
+    void _generate_support_material();
+    SupportParameters support_parameters() const;
     
     private:
     Print* _print;

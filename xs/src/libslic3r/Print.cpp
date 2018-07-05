@@ -4,7 +4,6 @@
 #include "Fill/Fill.hpp"
 #include "Flow.hpp"
 #include "Geometry.hpp"
-#include "SupportMaterial.hpp"
 #include <algorithm>
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>

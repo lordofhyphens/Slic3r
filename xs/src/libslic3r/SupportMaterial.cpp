@@ -633,7 +633,7 @@ SupportParameters
 SupportParameters::create_from_config(const PrintConfig &print_config,
                                       const PrintObjectConfig &object_config,
                                       coordf_t object_height,
-                                      const std::vector<unsigned int> &object_extruders)
+                                      const std::set<size_t> &object_extruders)
 {
     // Get the support extruder nozzle diameter.
     // TODO @Samir55 change this name.

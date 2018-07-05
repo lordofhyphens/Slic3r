@@ -5,27 +5,34 @@
 #include "test_utils.hpp"
 #include "SupportMaterial.hpp"
 
+// Check that supports are not created for object that doesn't need support.
 TEST_CASE("Supports_Tests_template", "TEST")
 {
-    // Create a mesh model.
-    TriangleMesh mesh = TestUtils::init_print("20mm_cube");
+    // Create a mesh & modelObject.
+    Model model = model.read_from_file("../src/test/models/CubeShape.3mf");
 
-    // Create a config object. // TODO @Samir55 Read more about shared pointers.
-    PrintConfig config = PrintConfig();
-    for (auto a : config.keys()) {
-        cout << a << " " << config.serialize(a) << endl;
-    }
+    // Create Print.
+    Print print = Print();
 
-    // Create a print object config.
-    auto print_object_config = PrintObjectConfig();
-    print_object_config.set_deserialize("support_material_xy_spacing", "0.2");
+    // Configure the printObjectConfig.
+    print.default_object_config.set_deserialize("support_material", "1");
 
-    // Create supports parameter object from the current config.
-    SupportParameters support_parameter = SupportParameters();
-    support_parameter.create_from_config(config, print_object_config, 10, vector<unsigned int>());
+    // Add the modelObject.
+    print.add_model_object(model.objects[0]);
 
-    // Create support.
-//    PrintObjectSupportMaterial object_support = PrintObjectSupportMaterial()
+    // Generate supports
+    print.get_object(0)->_generate_support_material();
 
-    REQUIRE(1+2 == 3);
+    REQUIRE(print.get_object(0)->support_layer_count() == 0);
+
+    // Add raft_layers and change configs.
+    print.default_object_config.set_deserialize("raft_layers", "3");
+    print.default_object_config.set_deserialize("first_layer_height", "0.4");
+    print.default_object_config.set_deserialize("layer_height", "0.3");
+
+    print.reload_object(0);
+    print.get_object(0)->_slice();
+    print.get_object(0)->_generate_support_material();
+
+    REQUIRE(print.get_object(0)->support_layer_count() == 3);
 }
