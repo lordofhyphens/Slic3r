@@ -83,7 +83,6 @@ add_library(ZipArchive STATIC
 target_compile_features(ZipArchive PUBLIC cxx_std_11)
 
 
-
 add_library(libslic3r STATIC
     ${LIBDIR}/libslic3r/BoundingBox.cpp
     ${LIBDIR}/libslic3r/BridgeDetector.cpp
@@ -144,6 +143,18 @@ add_library(libslic3r STATIC
 )
 target_compile_features(libslic3r PUBLIC cxx_std_11)
 
+
+# include and build Intel TBB
+include_directories(${LIBDIR}/tbb/include)
+
+set(TBB_BUILD_STATIC ON CACHE BOOL " " FORCE)
+set(TBB_BUILD_SHARED OFF CACHE BOOL " " FORCE)
+set(TBB_BUILD_TBBMALLOC OFF CACHE BOOL " " FORCE)
+set(TBB_BUILD_TBBMALLOC_PROXY OFF CACHE BOOL " " FORCE)
+set(TBB_BUILD_TESTS OFF CACHE BOOL " " FORCE)
+
+add_subdirectory(${LIBDIR}/tbb tbb)
+set_property(TARGET tbb_static tbb_def_files PROPERTY FOLDER "dependencies")
 
 
 add_library(BSpline STATIC
@@ -236,7 +247,7 @@ set(LIBSLIC3R_DEPENDS
     polypartition
     poly2tri
     ZipArchive
-    tbb
+    tbb_static
     ${Boost_LIBRARIES}
 )
 
