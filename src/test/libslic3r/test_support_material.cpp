@@ -1,5 +1,5 @@
-//#include <catch.hpp>
-#include "/home/ahmedsamir/FreeTime/SamirSlic3r/Slic3r/src/Catch2-2.0.1/include/catch.hpp" // It's kept for IDE suggestions.
+#include <catch.hpp>
+//#include "/home/ahmedsamir/FreeTime/SamirSlic3r/Slic3r/src/Catch2-2.0.1/include/catch.hpp" // It's kept for IDE suggestions.
 
 #include "Config.hpp"
 #include "test_utils.hpp"
