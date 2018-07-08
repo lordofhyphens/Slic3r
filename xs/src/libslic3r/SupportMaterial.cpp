@@ -350,6 +350,8 @@ PrintObjectSupportMaterial::MyLayersPtr
 PrintObjectSupportMaterial::top_contact_layers(const PrintObject &object,
                                                PrintObjectSupportMaterial::MyLayerStorage &layer_storage) const
 {
+    int i = 11;
+    printf("Samir %d\n",i++);
     // Output layers, sorted by top Z.
     MyLayersPtr contact_out;
 
@@ -360,7 +362,7 @@ PrintObjectSupportMaterial::top_contact_layers(const PrintObject &object,
                                                                                          : // +1 makes the threshold inclusive
                                  0.; //TODO @Samir55 Check.
 
-
+    printf("Samir %d\n",i++);
     // Build support on a build plate only? If so, then collect and union all the surfaces below the current layer.
     // Unfortunately this is an inherently a sequential process.
     const bool build_plate_only = this->build_plate_only();
@@ -381,13 +383,14 @@ PrintObjectSupportMaterial::top_contact_layers(const PrintObject &object,
             covered = union_(covered, false); // don't apply the safety offset.
         }
     }
-
+    printf("Samir %d\n",i++);
     // Determine top contact areas.
     // If generating raft only (no support), only calculate top contact areas for the 0th layer.
     // If having a raft, start with 0th layer, otherwise with 1st layer.
     // Note that layer_id < layer->id when raft_layers > 0 as the layer->id incorporates the raft layers.
     // So layer_id == 0 means first object layer and layer->id == 0 means first print layer if there are no explicit raft layers.
     size_t num_layers = this->has_support() ? object.layer_count() : 1;
+    contact_out.assign(num_layers, nullptr);
     tbb::spin_mutex layer_storage_mutex;
     tbb::parallel_for(tbb::blocked_range<size_t>(this->has_raft() ? 0 : 1, num_layers),
                       [this, &object, &build_plate_covered, threshold_rad, &layer_storage, &layer_storage_mutex, &contact_out](
@@ -594,7 +597,7 @@ PrintObjectSupportMaterial::top_contact_layers(const PrintObject &object,
                                   } // for each layer.region
                               } // end of Generate overhang/contact_polygons for non-raft layers.
 
-                              // now apply the contact areas to the layer were they need to be made
+//                              // now apply the contact areas to the layer were they need to be made
                               if (!contact_polygons.empty()) {
                                   // get the average nozzle diameter used on this layer
                                   MyLayer
@@ -659,7 +662,7 @@ PrintObjectSupportMaterial::top_contact_layers(const PrintObject &object,
                                           }
                                       }
                                   }
-
+//
                                   SupportGridPattern support_grid_pattern(
                                       // Support islands, to be stretched into a grid.
                                       contact_polygons,
@@ -674,19 +677,22 @@ PrintObjectSupportMaterial::top_contact_layers(const PrintObject &object,
                                       .extract_support(m_support_material_flow.scaled_spacing() / 2 + 5);
                                   // 2) Contact polygons will be projected down. To keep the interface and base layers to grow, return a contour a tiny bit smaller than the grid cells.
                                   new_layer.contact_polygons = new Polygons(support_grid_pattern.extract_support(-3));
-
+//
                                   // Even after the contact layer was expanded into a grid, some of the contact islands may be too tiny to be extruded.
                                   // Remove those tiny islands from new_layer.polygons and new_layer.contact_polygons.
-
+//
                                   // Store the overhang polygons.
                                   // The overhang polygons are used in the path generator for planning of the contact loops.
                                   // if (this->has_contact_loops())
                                   new_layer.overhang_polygons = new Polygons(std::move(overhang_polygons));
+                                  cout << "SIZE " << contact_out.size() << endl;
+                                  cout << "overhangs " << new_layer.contact_polygons->size() << endl;
+                                  cout << "SIZE " << new_layer.overhang_polygons->size() << endl;
                                   contact_out[layer_id] = &new_layer;
                               }
                           }
                       });
-
+    printf("Samir %d\n",i++);
     // Compress contact_out, remove the nullptr items.
     remove_nulls(contact_out);
     printf("Samir 6\n");

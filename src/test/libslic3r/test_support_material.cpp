@@ -1,7 +1,7 @@
-//#include <catch.hpp>
+#include <catch.hpp>
 #include <utility>
 
-#include "/home/ahmedsamir/FreeTime/SamirSlic3r/Slic3r/src/Catch2-2.0.1/include/catch.hpp" // It's kept for IDE suggestions.
+//#include "/home/ahmedsamir/FreeTime/SamirSlic3r/Slic3r/src/Catch2-2.0.1/include/catch.hpp" // It's kept for IDE suggestions.
 
 #include "Config.hpp"
 #include "test_utils.hpp"
@@ -42,6 +42,7 @@ TEST_CASE("supports_test_1", "T1")
     // Generate supports
     PrintObject* print_object = print.objects.front();
     print_object->_slice();
+    cout << print_object->layer_count() << endl;
     print_object->_generate_support_material();
 
     REQUIRE(print_object->support_layer_count() == 0);
@@ -52,14 +53,15 @@ TEST_CASE("supports_test_1", "T1")
     // Add raft_layers and change configs.
     print.default_object_config.set_deserialize("raft_layers", "3");
     print.default_object_config.set_deserialize("first_layer_height", "0.4");
-//    print.default_object_config.set_deserialize("layer_height", "0.3");
+    print.default_object_config.set_deserialize("layer_height", "0.3");
 
     print.add_model_object(model.objects[0]);
     print_object = print.objects.front();
     print_object->_slice();
     print_object->_generate_support_material();
+    print_object->get_support_material_object()->m_raft_layers.size();
 
-    REQUIRE(print_object->support_layer_count() == 3);
+    REQUIRE(print_object->get_support_material_object()->m_layers_sorted.size() == 3);
 //    REQUIRE (1 == 1);
 }
 //
