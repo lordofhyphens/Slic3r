@@ -4,10 +4,13 @@
 #include <iostream>
 #include <limits>
 #include "PrintConfig.hpp"
-
 using namespace std;
+
+#define NUM_MARGIN_STEPS 3 // Increment used to reach MARGIN in steps to avoid trespassing thin objects
 #define MIN_LAYER_HEIGHT 0.01
 #define MIN_LAYER_HEIGHT_DEFAULT 0.07
+
+#define SUPPORT_SURFACES_OFFSET_PARAMETERS ClipperLib::jtSquare, 0.0
 
 namespace Slic3r
 {

@@ -14,11 +14,6 @@
 #include "ClipperUtils.hpp"
 #include "SupportParameters.hpp"
 
-#define SUPPORT_SURFACES_OFFSET_PARAMETERS ClipperLib::jtSquare, 0.
-
-// Increment used to reach MARGIN in steps to avoid trespassing thin objects
-#define NUM_MARGIN_STEPS 3
-
 using namespace std;
 
 namespace Slic3r
@@ -29,8 +24,8 @@ constexpr coordf_t SUPPORT_MATERIAL_MARGIN = 1.5;
 
 /// This class manages raft and supports for a single PrintObject.
 /// Instantiated by Slic3r::Print::Object->_support_material()
-// TODO @Samir55 This class is instantiated before the slicing starts as Object.pm will query
-// TODO @Samir55 the parameters of the raft to determine the 1st layer height and thickness.
+// This class is instantiated before the slicing starts as Object.pm will query
+// the parameters of the raft to determine the 1st layer height and thickness.
 class PrintObjectSupportMaterial
 {
 public:
@@ -124,7 +119,7 @@ public:
         ///< Z used for printing, in unscaled coordinates.
 
         coordf_t bottom_z;
-        ///< Bottom Z of this layer. For soluble layers, bottom_z + height = print_z, TODO @Samir55 ASK. [RESOLVED :)]
+        ///< Bottom Z of this layer. For soluble layers, bottom_z + height = print_z,
         ///< otherwise bottom_z + gap + height = print_z.
 
         coordf_t height;
@@ -156,7 +151,6 @@ public:
     ///< which would allocate layers by multiple chunks. TODO @Samir55 REMOVE.
     typedef std::vector<MyLayer *> MyLayersPtr;
 
-public:
     PrintObjectSupportMaterial(const PrintObject *object,
                                const SupportParameters &support_params);
 
@@ -190,7 +184,7 @@ public:
     generate(PrintObject &object);
 
 private:
-    /// Generate top contact layers supporting overhangs. TODO @Samir55 ASK.
+    /// Generate top contact layers supporting overhangs.
     /// For a soluble interface material synchronize the layer heights with the object, otherwise leave the layer height undefined.
     /// If supports over bed surface only are requested, don't generate top contact layers over an object.
     /// \param object

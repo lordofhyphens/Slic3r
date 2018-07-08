@@ -2,11 +2,17 @@
 
 namespace Slic3r
 {
-/// TODO Check whether C++14 is gonna be used or not.
-/// \param layer_storage
-/// \param layer_storage_mutex
-/// \param layer_type
-/// \return
+/// Compare layers lexicographically.
+struct MyLayersPtrCompare
+{
+    bool
+    operator()(const PrintObjectSupportMaterial::MyLayer *layer1,
+               const PrintObjectSupportMaterial::MyLayer *layer2) const
+    {
+        return *layer1 < *layer2;
+    }
+};
+
 inline PrintObjectSupportMaterial::MyLayer &
 layer_allocate(
     std::deque<PrintObjectSupportMaterial::MyLayer> &layer_storage,
@@ -19,6 +25,19 @@ layer_allocate(
     layer_storage_mutex.unlock();
     layer_new->layer_type = layer_type;
     return *layer_new;
+}
+
+inline PrintObjectSupportMaterial::MyLayer &
+layer_allocate(deque<PrintObjectSupportMaterial::MyLayer> &layer_storage,
+               PrintObjectSupportMaterial::SupportLayerType layer_type)
+{
+    // Create a new Mylayer and enqueue it at the deque.
+    layer_storage.emplace_back();
+
+    // Add this new layer type.
+    layer_storage.back().layer_type = layer_type;
+
+    return layer_storage.back();
 }
 
 /// Append MyLayers to a destination vector.
@@ -41,7 +60,7 @@ min_layer_height_from_nozzle(const PrintConfig &print_config, int idx_nozzle)
     return (min_layer_height == 0.0) ? MIN_LAYER_HEIGHT_DEFAULT : std::max(MIN_LAYER_HEIGHT, min_layer_height);
 }
 
-/// Maximum layer height for the variable layer height algorithm, 3/4 of a nozzle dimaeter by default,
+/// Maximum layer height for the variable layer height algorithm, 3/4 of a nozzle diameter by default,
 /// it should not be smaller than the minimum layer height.
 /// \param print_config
 /// \param idx_nozzle
@@ -106,22 +125,112 @@ PrintObjectSupportMaterial::PrintObjectSupportMaterial(const PrintObject *object
     }
 }
 
-/// Compare layers lexicographically.
-struct MyLayersPtrCompare
-{
-    bool
-    operator()(const PrintObjectSupportMaterial::MyLayer *layer1,
-               const PrintObjectSupportMaterial::MyLayer *layer2) const
-    {
-        return *layer1 < *layer2;
-    }
-};
-
-// TODO @Samir55
 void
 PrintObjectSupportMaterial::generate(PrintObject &object)
 {
+    coordf_t max_object_layer_height = 0.;
+    for (size_t i = 0; i < object.layer_count(); ++ i)
+        max_object_layer_height = max(max_object_layer_height, object.layers[i]->height);
 
+    // Layer instances will be allocated by std::deque and they will be kept until the end of this function call.
+    // The layers will be referenced by various LayersPtr (of type std::vector<Layer*>)
+    MyLayerStorage layer_storage;
+
+    // Determine the top contact surfaces of the support, defined as:
+    // contact = overhangs - clearance + margin
+    // This method is responsible for identifying what contact surfaces
+    // should the support material expose to the object in order to guarantee
+    // that it will be effective, regardless of how it's built below.
+    // If raft is to be generated, the 1st top_contact layer will contain the 1st object layer silhouette without holes.
+    MyLayersPtr top_contacts = this->top_contact_layers(object, layer_storage);
+    if (top_contacts.empty())
+        // Nothing is supported, no supports are generated.
+        return;
+
+    // Determine the bottom contact surfaces of the supports over the top surfaces of the object.
+    // Depending on whether the support is soluble or not, the contact layer thickness is decided.
+    // layer_support_areas contains the per object layer support areas. These per object layer support areas
+    // may get merged and trimmed by this->generate_base_layers() if the support layers are not synchronized with object layers.
+    std::vector<Polygons> layer_support_areas;
+    MyLayersPtr bottom_contacts = this->bottom_contact_layers_and_layer_support_areas(
+        object, top_contacts, layer_storage,
+        layer_support_areas);
+
+    // Allocate empty layers between the top / bottom support contact layers
+    // as placeholders for the base and intermediate support layers.
+    // The layers may or may not be synchronized with the object layers, depending on the configuration.
+    // For example, a single nozzle multi material printing will need to generate a waste tower, which in turn
+    // wastes less material, if there are as little tool changes as possible.
+    MyLayersPtr intermediate_layers = this->raft_and_intermediate_support_layers(
+        object, bottom_contacts, top_contacts, layer_storage);
+
+    // TODO @Samir55
+    this->trim_support_layers_by_object(object, top_contacts, m_support_params.soluble_interface ? 0. : m_support_layer_height_min, 0., m_gap_xy);
+
+    // Fill in intermediate layers between the top / bottom support contact layers, trim them by the object.
+    this->generate_base_layers(object, bottom_contacts, top_contacts, intermediate_layers, layer_support_areas);
+
+    // TODO @Samir55
+    // Because the top and bottom contacts are thick slabs, they may overlap causing over extrusion
+    // and unwanted strong bonds to the object.
+    // Rather trim the top contacts by their overlapping bottom contacts to leave a gap instead of over extruding
+    // top contacts over the bottom contacts.
+    this->trim_top_contacts_by_bottom_contacts(object, bottom_contacts, top_contacts);
+
+    // Propagate top / bottom contact layers to generate interface layers.
+    MyLayersPtr interface_layers = this->generate_interface_layers(
+        bottom_contacts, top_contacts, intermediate_layers, layer_storage);
+
+    // If raft is to be generated, the 1st top_contact layer will contain the 1st object layer silhouette with holes filled.
+    // There is also a 1st intermediate layer containing bases of support columns.
+    // Inflate the bases of the support columns and create the raft base under the object.
+    MyLayersPtr raft_layers = this->generate_raft_base(top_contacts, interface_layers, intermediate_layers, layer_storage);
+
+    // Install support layers into the object.
+    // A support layer installed on a PrintObject has a unique print_z.
+    MyLayersPtr layers_sorted;
+    layers_sorted.reserve(raft_layers.size() + bottom_contacts.size() + top_contacts.size() + intermediate_layers.size() + interface_layers.size());
+    layers_append(layers_sorted, raft_layers);
+    layers_append(layers_sorted, bottom_contacts);
+    layers_append(layers_sorted, top_contacts);
+    layers_append(layers_sorted, intermediate_layers);
+    layers_append(layers_sorted, interface_layers);
+
+    // Sort the layers lexicographically by a raising print_z and a decreasing height.
+    std::sort(layers_sorted.begin(), layers_sorted.end(), MyLayersPtrCompare());
+
+    assert(object.support_layers.empty());
+
+    int layer_id = 0;
+    for (int i = 0; i < int(layers_sorted.size());) {
+        // Find the last layer with roughly the same print_z, find the minimum layer height of all.
+        // Due to the floating point inaccuracies, the print_z may not be the same even if in theory they should.
+        coordf_t z_max = layers_sorted[i]->print_z + EPSILON;
+
+        // Assign an average print_z to the set of layers with nearly equal print_z.
+        int j = i + 1;
+        for (; j < layers_sorted.size() && layers_sorted[j]->print_z <= z_max; ++j);
+        coordf_t z_avg = 0.5 * (layers_sorted[i]->print_z + layers_sorted[j - 1]->print_z);
+        coordf_t height_min = layers_sorted[i]->height;
+
+        bool empty = true;
+        for (int u = i; u < j; ++u) {
+            MyLayer &layer = *layers_sorted[u];
+
+            if (!layer.polygons.empty())
+                empty = false;
+
+            layer.print_z = z_avg; // TODO @Samir55 Remove this comment the lower (start z)
+            height_min = std::min(height_min, layer.height);
+        }
+
+        if (!empty) {
+            // Here the upper_layer and lower_layer pointers are left to null at the support layers,
+            // as they are never used. These pointers are candidates for removal.
+            object.add_support_layer(layer_id++, height_min, z_avg);
+        }
+        i = j;
+    }
 }
 
 // Collect outer contours of all slices of this layer.
@@ -524,24 +633,6 @@ PrintObjectSupportMaterial::generate_toolpaths(const PrintObject &object,
 
 }
 
-///
-/// \param layer_storage
-/// \param layer_type
-/// \return
-inline PrintObjectSupportMaterial::MyLayer &
-layer_allocate(deque<PrintObjectSupportMaterial::MyLayer> &layer_storage,
-               PrintObjectSupportMaterial::SupportLayerType layer_type)
-{
-    // Create a new Mylayer and enqueue it at the deque.
-    layer_storage.emplace_back();
-
-    // Add this new layer type.
-    layer_storage.back().layer_type = layer_type;
-
-    return layer_storage.back();
-}
-
-// TODO @Samir55 Refactor
 Flow
 support_material_flow(const PrintObject *object, float layer_height)
 {

@@ -6,18 +6,18 @@
 #include "SupportMaterial.hpp"
 #include "IO.hpp"
 
-Model create_model(string model_type) {
+Model* create_model(string model_type) {
     // Create a mesh.
     TriangleMesh mesh = TestUtils::init_print(model_type);
 
     // Create modelObject.
-    Model model;
-    ModelObject* object = model.add_object();
+    Model* model = new Model();
+    ModelObject* object = model->add_object();
     object->add_volume(mesh);
-    model.add_default_instances();
+    model->add_default_instances();
 
     // Align to origin.
-    model.align_instances_to_origin();
+    model->align_instances_to_origin();
 
     return model;
 }
@@ -58,16 +58,16 @@ TEST_CASE("supports_test_1", "T1")
 // The default is 0.8 * nozzle diameter.
 TEST_CASE("supports_test_2", "T2") {
     // Create a model.
-    Model model = create_model("overhangs");
+    Model* model = create_model("overhangs");
 
     // Create Print.
     Print print = Print();
     print.config.set_deserialize("nozzle_diameter", "0.4");
     print.default_object_config.set_deserialize("raft_layers", "0");
 
-    print.add_model_object(model.objects[0]);
-    print.get_object(0)->_slice();
-    print.get_object(0)->_generate_support_material();
+    print.add_model_object(model->objects[0]);
+    print.objects.front()->_slice();
+    print.objects.front()->_generate_support_material();
 
     REQUIRE(print.get_object(0)->support_layer_count() > 0);
 
@@ -90,5 +90,9 @@ TEST_CASE("supports_test_3", "T3") {
 
     // Add the modelObject.
     print.add_model_object(model.objects[0]);
+    print.objects.front()->_slice();
+    print.objects.front()->_generate_support_material();
+
+    print.objects.front()->get_support_material_object()->
 
 }
