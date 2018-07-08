@@ -183,6 +183,13 @@ public:
     void
     generate(PrintObject &object);
 
+    MyLayersPtr m_top_contacts; ///< Added for testing.
+    MyLayersPtr m_bottom_contacts; ///< Added for testing.
+    MyLayersPtr m_intermediate_layers; ///< Added for testing.
+    MyLayersPtr m_interface_layers; ///< Added for testing.
+    MyLayersPtr m_raft_layers; ///< Added for testing.
+    MyLayersPtr m_layers_sorted; ///< Added for testing.
+
 private:
     /// Generate top contact layers supporting overhangs.
     /// For a soluble interface material synchronize the layer heights with the object, otherwise leave the layer height undefined.

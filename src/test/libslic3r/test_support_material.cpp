@@ -66,33 +66,62 @@ TEST_CASE("supports_test_2", "T2") {
     print.default_object_config.set_deserialize("raft_layers", "0");
 
     print.add_model_object(model->objects[0]);
-    print.objects.front()->_slice();
-    print.objects.front()->_generate_support_material();
 
-    REQUIRE(print.get_object(0)->support_layer_count() > 0);
+    PrintObject* print_object = print.objects.front();
+    print_object->_slice();
+    print_object->_generate_support_material();
 
-    REQUIRE(abs(print.get_object(0)->support_layers[1]->height - 0.4 * 0.8) < EPSILON);
+    REQUIRE(print_object->support_layer_count() > 0);
+
+    REQUIRE(abs(print_object->support_layers[1]->height - 0.4 * 0.8) < EPSILON);
 }
 
-/// Check forced supports layers z coordinates (heights).
+/// Test for this requirement.
+/*
+ The distance from the top of the support to the bottom of the supported structure shall be defined as:
+ contact_distance_z === or as support_material_contact_distance in print config.
+ contact_distance_z represents the real gap between the top of the generated support and the desired bottom of the above (bridging) layer.
+ contact_distance_z of 0 is useful for soluble supports.
+ Note: contact_distance_z + nozzle_diameter is the distance from the top of the bridging layer to the top of the support.
+ */
 TEST_CASE("supports_test_3", "T3") {
     // Create a model.
-    Model model = create_model("20mm_cube");
+    Model* model = create_model("20mm_cube");
 
     // Create Print.
     Print print = Print();
 
     // Configure the printObjectConfig.
-    print.default_object_config.set_deserialize("support_material", "0");
+    print.default_object_config.set_deserialize("raft_layers", "0");
+    print.default_object_config.set_deserialize("support_material", "1");
     print.default_object_config.set_deserialize("support_material_enforce_layers", "100");
-    print.default_object_config.set_deserialize("layer_height", "0.2");
     print.default_object_config.set_deserialize("first_layer_height", "0.3");
+    print.default_object_config.set_deserialize("layer_height", "0.2");
+    print.default_object_config.set_deserialize("support_material_contact_distance", "0"); // Make it soluble contact distance.
 
     // Add the modelObject.
-    print.add_model_object(model.objects[0]);
-    print.objects.front()->_slice();
-    print.objects.front()->_generate_support_material();
+    print.add_model_object(model->objects[0]);
 
-    print.objects.front()->get_support_material_object()->
+    PrintObject* print_object = print.objects.front();
+    print_object->_slice();
+    print_object->_generate_support_material();
 
+    PrintObjectSupportMaterial *support_object = print_object->get_support_material_object();
+
+    REQUIRE(support_object->m_raft_layers.size() == 0);
+
+    bool layers_z_correct = true;
+    for (auto layer : support_object->m_top_contacts)
+        layers_z_correct = (layer->bottom_z + layer->height) > layer->print_z + EPSILON;
+
+    for (auto layer : support_object->m_intermediate_layers)
+        layers_z_correct = (layer->bottom_z + layer->height) > layer->print_z + EPSILON;
+
+    for (auto layer : support_object->m_interface_layers)
+        layers_z_correct = (layer->bottom_z + layer->height) > layer->print_z + EPSILON;
+
+    for (auto layer : support_object->m_bottom_contacts)
+        layers_z_correct = (layer->bottom_z + layer->height) > layer->print_z + EPSILON;
+
+    REQUIRE(layers_z_correct);
 }

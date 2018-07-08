@@ -142,8 +142,8 @@ PrintObjectSupportMaterial::generate(PrintObject &object)
     // should the support material expose to the object in order to guarantee
     // that it will be effective, regardless of how it's built below.
     // If raft is to be generated, the 1st top_contact layer will contain the 1st object layer silhouette without holes.
-    MyLayersPtr top_contacts = this->top_contact_layers(object, layer_storage);
-    if (top_contacts.empty())
+    m_top_contacts = this->top_contact_layers(object, layer_storage);
+    if (m_top_contacts.empty())
         // Nothing is supported, no supports are generated.
         return;
 
@@ -152,8 +152,8 @@ PrintObjectSupportMaterial::generate(PrintObject &object)
     // layer_support_areas contains the per object layer support areas. These per object layer support areas
     // may get merged and trimmed by this->generate_base_layers() if the support layers are not synchronized with object layers.
     std::vector<Polygons> layer_support_areas;
-    MyLayersPtr bottom_contacts = this->bottom_contact_layers_and_layer_support_areas(
-        object, top_contacts, layer_storage,
+    m_bottom_contacts = this->bottom_contact_layers_and_layer_support_areas(
+        object, m_top_contacts, layer_storage,
         layer_support_areas);
 
     // Allocate empty layers between the top / bottom support contact layers
@@ -161,61 +161,60 @@ PrintObjectSupportMaterial::generate(PrintObject &object)
     // The layers may or may not be synchronized with the object layers, depending on the configuration.
     // For example, a single nozzle multi material printing will need to generate a waste tower, which in turn
     // wastes less material, if there are as little tool changes as possible.
-    MyLayersPtr intermediate_layers = this->raft_and_intermediate_support_layers(
-        object, bottom_contacts, top_contacts, layer_storage);
+    m_intermediate_layers = this->raft_and_intermediate_support_layers(
+        object, m_bottom_contacts, m_top_contacts, layer_storage);
 
     // TODO @Samir55
-    this->trim_support_layers_by_object(object, top_contacts, m_support_params.soluble_interface ? 0. : m_support_layer_height_min, 0., m_gap_xy);
+    this->trim_support_layers_by_object(object, m_top_contacts, m_support_params.soluble_interface ? 0. : m_support_layer_height_min, 0., m_gap_xy);
 
     // Fill in intermediate layers between the top / bottom support contact layers, trim them by the object.
-    this->generate_base_layers(object, bottom_contacts, top_contacts, intermediate_layers, layer_support_areas);
+    this->generate_base_layers(object, m_bottom_contacts, m_top_contacts, m_intermediate_layers, layer_support_areas);
 
     // TODO @Samir55
     // Because the top and bottom contacts are thick slabs, they may overlap causing over extrusion
     // and unwanted strong bonds to the object.
     // Rather trim the top contacts by their overlapping bottom contacts to leave a gap instead of over extruding
     // top contacts over the bottom contacts.
-    this->trim_top_contacts_by_bottom_contacts(object, bottom_contacts, top_contacts);
+    this->trim_top_contacts_by_bottom_contacts(object, m_bottom_contacts, m_top_contacts);
 
     // Propagate top / bottom contact layers to generate interface layers.
-    MyLayersPtr interface_layers = this->generate_interface_layers(
-        bottom_contacts, top_contacts, intermediate_layers, layer_storage);
+    m_interface_layers = this->generate_interface_layers(
+        m_bottom_contacts, m_top_contacts, m_intermediate_layers, layer_storage);
 
     // If raft is to be generated, the 1st top_contact layer will contain the 1st object layer silhouette with holes filled.
     // There is also a 1st intermediate layer containing bases of support columns.
     // Inflate the bases of the support columns and create the raft base under the object.
-    MyLayersPtr raft_layers = this->generate_raft_base(top_contacts, interface_layers, intermediate_layers, layer_storage);
+    m_raft_layers = this->generate_raft_base(m_top_contacts, m_interface_layers, m_intermediate_layers, layer_storage);
 
     // Install support layers into the object.
     // A support layer installed on a PrintObject has a unique print_z.
-    MyLayersPtr layers_sorted;
-    layers_sorted.reserve(raft_layers.size() + bottom_contacts.size() + top_contacts.size() + intermediate_layers.size() + interface_layers.size());
-    layers_append(layers_sorted, raft_layers);
-    layers_append(layers_sorted, bottom_contacts);
-    layers_append(layers_sorted, top_contacts);
-    layers_append(layers_sorted, intermediate_layers);
-    layers_append(layers_sorted, interface_layers);
+    m_layers_sorted.reserve(m_raft_layers.size() + m_bottom_contacts.size() + m_top_contacts.size() + m_intermediate_layers.size() + m_interface_layers.size());
+    layers_append(m_layers_sorted, m_raft_layers);
+    layers_append(m_layers_sorted, m_bottom_contacts);
+    layers_append(m_layers_sorted, m_top_contacts);
+    layers_append(m_layers_sorted, m_intermediate_layers);
+    layers_append(m_layers_sorted, m_interface_layers);
 
     // Sort the layers lexicographically by a raising print_z and a decreasing height.
-    std::sort(layers_sorted.begin(), layers_sorted.end(), MyLayersPtrCompare());
+    std::sort(m_layers_sorted.begin(), m_layers_sorted.end(), MyLayersPtrCompare());
 
     assert(object.support_layers.empty());
 
     int layer_id = 0;
-    for (int i = 0; i < int(layers_sorted.size());) {
+    for (int i = 0; i < int(m_layers_sorted.size());) {
         // Find the last layer with roughly the same print_z, find the minimum layer height of all.
         // Due to the floating point inaccuracies, the print_z may not be the same even if in theory they should.
-        coordf_t z_max = layers_sorted[i]->print_z + EPSILON;
+        coordf_t z_max = m_layers_sorted[i]->print_z + EPSILON;
 
         // Assign an average print_z to the set of layers with nearly equal print_z.
         int j = i + 1;
-        for (; j < layers_sorted.size() && layers_sorted[j]->print_z <= z_max; ++j);
-        coordf_t z_avg = 0.5 * (layers_sorted[i]->print_z + layers_sorted[j - 1]->print_z);
-        coordf_t height_min = layers_sorted[i]->height;
+        for (; j < m_layers_sorted.size() && m_layers_sorted[j]->print_z <= z_max; ++j);
+        coordf_t z_avg = 0.5 * (m_layers_sorted[i]->print_z + m_layers_sorted[j - 1]->print_z);
+        coordf_t height_min = m_layers_sorted[i]->height;
 
         bool empty = true;
         for (int u = i; u < j; ++u) {
-            MyLayer &layer = *layers_sorted[u];
+            MyLayer &layer = *m_layers_sorted[u];
 
             if (!layer.polygons.empty())
                 empty = false;
@@ -260,8 +259,9 @@ PrintObjectSupportMaterial::top_contact_layers(const PrintObject &object,
 
     // Build support on a build plate only? If so, then collect and union all the surfaces below the current layer.
     // Unfortunately this is an inherently a sequential process.
-    const bool            build_plate_only = this->build_plate_only();
+    const bool build_plate_only = this->build_plate_only();
     std::vector<Polygons> build_plate_covered;
+
     if (build_plate_only) {
         build_plate_covered.assign(object.layers.size(), Polygons());
         for (size_t layer_id = 1; layer_id < object.layers.size(); ++ layer_id) {
