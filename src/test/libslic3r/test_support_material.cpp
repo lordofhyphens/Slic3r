@@ -1,7 +1,7 @@
-#include <catch.hpp>
+//#include <catch.hpp>
 #include <utility>
 
-//#include "/home/ahmedsamir/FreeTime/SamirSlic3r/Slic3r/src/Catch2-2.0.1/include/catch.hpp" // It's kept for IDE suggestions.
+#include "/home/ahmedsamir/FreeTime/SamirSlic3r/Slic3r/src/Catch2-2.0.1/include/catch.hpp" // It's kept for IDE suggestions.
 
 #include "Config.hpp"
 #include "test_utils.hpp"
@@ -42,10 +42,9 @@ TEST_CASE("supports_test_1", "T1")
     // Generate supports
     PrintObject* print_object = print.objects.front();
     print_object->_slice();
-    cout << print_object->layer_count() << endl;
     print_object->_generate_support_material();
 
-    REQUIRE(print_object->support_layer_count() == 0);
+    REQUIRE(print_object->get_support_material_object()->m_layers_sorted.size() == 0);
 
     model = model.read_from_file("../src/test/libslic3r/models/CubeShape.3mf");
     print = Print();
@@ -59,10 +58,9 @@ TEST_CASE("supports_test_1", "T1")
     print_object = print.objects.front();
     print_object->_slice();
     print_object->_generate_support_material();
-    print_object->get_support_material_object()->m_raft_layers.size();
 
-    REQUIRE(print_object->get_support_material_object()->m_layers_sorted.size() == 3);
-//    REQUIRE (1 == 1);
+    REQUIRE( (print_object->get_support_material_object()->m_top_contacts.size() == 1 &&
+        print_object->get_support_material_object()->m_raft_layers.size() == 2 ));
 }
 //
 //// Check intermediate support material shall be extruded at a layer height of maximum_support_layer_height
