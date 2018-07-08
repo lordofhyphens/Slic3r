@@ -140,7 +140,7 @@ add_library(libslic3r STATIC
     ${LIBDIR}/libslic3r/SVG.cpp
     ${LIBDIR}/libslic3r/TriangleMesh.cpp
     ${LIBDIR}/libslic3r/utils.cpp
-)
+        ../xs/src/libslic3r/SupportParameters.hpp ../xs/src/libslic3r/SupportParameters.cpp)
 target_compile_features(libslic3r PUBLIC cxx_std_11)
 
 

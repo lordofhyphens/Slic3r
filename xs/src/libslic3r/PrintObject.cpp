@@ -11,7 +11,8 @@ PrintObject::PrintObject(Print* print, ModelObject* model_object, const Bounding
 :   layer_height_spline(model_object->layer_height_spline),
     typed_slices(false),
     _print(print),
-    _model_object(model_object)
+    _model_object(model_object),
+    support_material_object(nullptr)
 {
     // Compute the translation to be applied to our meshes so that we work with smaller coordinates
     {
@@ -35,6 +36,7 @@ PrintObject::PrintObject(Print* print, ModelObject* model_object, const Bounding
 
 PrintObject::~PrintObject()
 {
+    delete support_material_object;
 }
 
 Print*
@@ -1108,9 +1110,15 @@ PrintObject::support_parameters() const
 void
 PrintObject::_generate_support_material()
 {
-    PrintObjectSupportMaterial support_material(this, PrintObject::support_parameters());
-    support_material.generate(*this);
+    if (!support_material_object)
+        support_material_object = new PrintObjectSupportMaterial(this, PrintObject::support_parameters());
+
+    support_material_object->generate(*this);
 }
 
+PrintObjectSupportMaterial*
+PrintObject::get_support_material_object() {
+    return support_material_object;
+}
 
 }

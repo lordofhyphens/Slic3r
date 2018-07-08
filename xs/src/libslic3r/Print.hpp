@@ -26,6 +26,7 @@ class Print;
 class PrintObject;
 class ModelObject;
 class SupportParameters;
+class PrintObjectSupportMaterial;
 
 // Print step IDs for keeping track of the print state.
 enum PrintStep {
@@ -158,6 +159,7 @@ class PrintObject
     void _infill();
 
     // Supports functions.
+    PrintObjectSupportMaterial* get_support_material_object();
     void _generate_support_material();
     SupportParameters support_parameters() const;
     
@@ -165,6 +167,7 @@ class PrintObject
     Print* _print;
     ModelObject* _model_object;
     Points _copies;      // Slic3r::Point objects in scaled G-code coordinates
+    PrintObjectSupportMaterial* support_material_object;
 
     // TODO: call model_object->get_bounding_box() instead of accepting
         // parameter

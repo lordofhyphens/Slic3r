@@ -405,20 +405,20 @@ sub support_layers_z {
     # we use max() to prevent many ultra-thin layers to be inserted in case
     # layer_height > nozzle_diameter * 0.75
     my $nozzle_diameter = $self->print_config->get_at('nozzle_diameter', $self->object_config->support_material_extruder-1);
-    my $support_material_height = max($max_object_layer_height, $nozzle_diameter * 0.75);
+    my $support_material_height = max($max_object_layer_height, $nozzle_diameter * 0.75); #0.375
     my $contact_distance = $self->contact_distance($support_material_height, $nozzle_diameter);
     
     # initialize known, fixed, support layers
     my @z = sort { $a <=> $b }
         @$contact_z,
         @$top_z,  # TODO: why we have this?
-        (map $_ + $contact_distance, @$top_z);
-    
+        (map $_ + $contact_distance, @$top_z); #Z = {1.1 1.8 1.9}
+
     # enforce first layer height
     my $first_layer_height = $self->object_config->get_value('first_layer_height');
     shift @z while @z && $z[0] <= $first_layer_height;
     unshift @z, $first_layer_height;
-    
+#    return \@z;
     # add raft layers by dividing the space between first layer and
     # first contact layer evenly
     if ($self->object_config->raft_layers > 1 && @z >= 2) {
@@ -433,12 +433,11 @@ sub support_layers_z {
     }
     
     # create other layers (skip raft layers as they're already done and use thicker layers)
-    for (my $i = $#z; $i >= $self->object_config->raft_layers; $i--) {
+    for (my $i = $#z; $i >= $self->object_config->raft_layers; $i--) { #loop inversely.
         my $target_height = $support_material_height;
         if ($i > 0 && $top{ $z[$i-1] }) {
             $target_height = $nozzle_diameter;
         }
-        
         # enforce first layer height
         if (($i == 0 && $z[$i] > $target_height + $first_layer_height)
             || ($z[$i] - $z[$i-1] > $target_height + Slic3r::Geometry::epsilon)) {
@@ -1008,7 +1007,7 @@ sub overlapping_layers {
 
 sub contact_distance {
     my ($self, $layer_height, $nozzle_diameter) = @_;
-    
+
     my $extra = $self->object_config->support_material_contact_distance;
     if ($extra == 0) {
         return $layer_height;

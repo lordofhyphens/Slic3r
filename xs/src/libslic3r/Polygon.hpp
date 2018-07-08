@@ -75,6 +75,17 @@ inline void polygons_rotate(Polygons &polys, double angle)
         p.rotate(cos_angle, sin_angle);
 }
 
+inline void polygons_append(Polygons &dst, Polygons &&src)
+{
+    if (dst.empty()) {
+        dst = std::move(src);
+    } else {
+        std::move(std::begin(src), std::end(src), std::back_inserter(dst));
+        src.clear();
+    }
+}
+
+inline void polygons_append(Polygons &dst, const Polygons &src) { dst.insert(dst.end(), src.begin(), src.end()); }
 }
 
 // start Boost

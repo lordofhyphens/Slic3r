@@ -22,7 +22,7 @@ public:
         else if (model_type == "overhangs") {
             ifstream file;
 
-            file.open("../src/test/models/overhangs.model");
+            file.open("../src/test/libslic3r/models/overhangs.model");
 
             Pointf3s vertices;
             for (auto i = 0; i < 61; i++) {
