@@ -1,5 +1,7 @@
-//#include <catch.hpp>
-#include "/home/ahmedsamir/FreeTime/SamirSlic3r/Slic3r/src/Catch2-2.0.1/include/catch.hpp" // It's kept for IDE suggestions.
+#include <catch.hpp>
+#include <utility>
+
+//#include "/home/ahmedsamir/FreeTime/SamirSlic3r/Slic3r/src/Catch2-2.0.1/include/catch.hpp" // It's kept for IDE suggestions.
 
 #include "Config.hpp"
 #include "test_utils.hpp"
@@ -8,10 +10,10 @@
 
 Model* create_model(string model_type) {
     // Create a mesh.
-    TriangleMesh mesh = TestUtils::init_print(model_type);
+    TriangleMesh mesh = TestUtils::init_print(std::move(model_type));
 
     // Create modelObject.
-    Model* model = new Model();
+    auto * model = new Model();
     ModelObject* object = model->add_object();
     object->add_volume(mesh);
     model->add_default_instances();
@@ -113,7 +115,7 @@ TEST_CASE("supports_test_3", "T3") {
 
     PrintObjectSupportMaterial *support_object = print_object->get_support_material_object();
 
-    REQUIRE(support_object->m_raft_layers.size() == 0);
+    REQUIRE(support_object->m_raft_layers.empty());
 
     bool layers_z_correct = true;
     for (auto layer : support_object->m_top_contacts)
