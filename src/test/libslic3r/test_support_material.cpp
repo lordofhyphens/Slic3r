@@ -38,20 +38,25 @@ TEST_CASE("supports_test_1", "T1")
     print.add_model_object(model.objects[0]);
 
     // Generate supports
-    print.get_object(0)->_generate_support_material();
+    PrintObject* print_object = print.objects.front();
+    print_object->_slice();
+    print_object->_generate_support_material();
 
-    REQUIRE(print.get_object(0)->support_layer_count() == 0);
+    REQUIRE(print_object->support_layer_count() == 0);
 
     // Add raft_layers and change configs.
     print.default_object_config.set_deserialize("raft_layers", "3");
     print.default_object_config.set_deserialize("first_layer_height", "0.4");
     print.default_object_config.set_deserialize("layer_height", "0.3");
 
-    print.reload_object(0);
-    print.get_object(0)->_slice();
-    print.get_object(0)->_generate_support_material();
+    model = model.read_from_file("../src/test/libslic3r/models/CubeShape.3mf");
+    print = Print();
+    print.add_model_object(model.objects[0]);
+    print_object = print.objects.front();
+    print_object->_slice();
+    print_object->_generate_support_material();
 
-    REQUIRE(print.get_object(0)->support_layer_count() == 3);
+    REQUIRE(print_object->support_layer_count() == 3);
 }
 
 // Check intermediate support material shall be extruded at a layer height of maximum_support_layer_height
@@ -125,3 +130,4 @@ TEST_CASE("supports_test_3", "T3") {
 
     REQUIRE(layers_z_correct);
 }
+
