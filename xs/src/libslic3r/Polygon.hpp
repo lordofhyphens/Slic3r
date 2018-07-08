@@ -52,6 +52,14 @@ class Polygon : public MultiPoint {
     static Polygon new_scale(const Pointfs& p);
 };
 
+// Remove sticks (tentacles with zero area) from the polygon.
+extern bool        remove_sticks(Polygon &poly);
+extern bool        remove_sticks(Polygons &polys);
+
+// Remove polygons with less than 3 edges.
+extern bool        remove_degenerate(Polygons &polys);
+extern bool        remove_small(Polygons &polys, double min_area);
+
 extern BoundingBox get_extents(const Polygon &poly);
 extern BoundingBox get_extents(const Polygons &polygons);
 

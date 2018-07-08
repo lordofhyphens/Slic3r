@@ -136,6 +136,7 @@ SupportParameters::create_from_config(const PrintConfig &print_config,
     }
 
     if (params.has_raft()) {
+        printf("SDsdSDS\n");
         // Raise first object layer Z by the thickness of the raft itself plus the extra distance required by the support material logic.
         //FIXME The last raft layer is the contact layer, which shall be printed with a bridging flow for ease of separation. Currently it is not the case.
         if (params.raft_layers() == 1) {

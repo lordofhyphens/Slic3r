@@ -34,6 +34,8 @@ class Polyline : public MultiPoint {
     std::string wkt() const;
 };
 
+bool remove_degenerate(Polylines &polylines);
+
 class ThickPolyline : public Polyline {
     public:
     std::vector<coordf_t> width;

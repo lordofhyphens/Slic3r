@@ -308,7 +308,7 @@ IF(wxWidgets_FOUND)
             else()
                 set(FETCH_EXTERNAL_CATCH
                     URL https://github.com/catchorg/Catch2/archive/v2.0.1.tar.gz
-                    URL_HASH MD5=2080f4696579351d9323b3b5a8c3c71b)
+                    URL_HASH MD5=d41d8cd98f00b204e9800998ecf8427e)
             endif()
             ExternalProject_Add(Catch-External
                 PREFIX ${CMAKE_BINARY_DIR}/external/Catch
@@ -377,7 +377,7 @@ if (SLIC3R_BUILD_TESTS)
         else()
             set(FETCH_EXTERNAL_CATCH
                 URL https://github.com/catchorg/Catch2/archive/v2.0.1.tar.gz
-                URL_HASH MD5=2080f4696579351d9323b3b5a8c3c71b)
+                URL_HASH MD5=d41d8cd98f00b204e9800998ecf8427e)
         endif()
         ExternalProject_Add(Catch-External
             PREFIX ${CMAKE_BINARY_DIR}/external/Catch

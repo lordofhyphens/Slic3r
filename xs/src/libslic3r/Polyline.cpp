@@ -220,6 +220,24 @@ Polyline::wkt() const
     return wkt.str();
 }
 
+bool remove_degenerate(Polylines &polylines)
+{
+    bool modified = false;
+    size_t j = 0;
+    for (size_t i = 0; i < polylines.size(); ++ i) {
+        if (polylines[i].points.size() >= 2) {
+            if (j < i)
+                std::swap(polylines[i].points, polylines[j].points);
+            ++ j;
+        } else
+            modified = true;
+    }
+    if (j < polylines.size())
+        polylines.erase(polylines.begin() + j, polylines.end());
+    return modified;
+}
+
+
 ThickLines
 ThickPolyline::thicklines() const
 {
