@@ -54,6 +54,7 @@ TEST_CASE("supports_test_1", "T1")
     print.default_object_config.set_deserialize("first_layer_height", "0.4");
     print.default_object_config.set_deserialize("layer_height", "0.3");
 
+    // Generate supports
     print.add_model_object(model.objects[0]);
     print_object = print.objects.front();
     print_object->_slice();
@@ -62,38 +63,39 @@ TEST_CASE("supports_test_1", "T1")
     REQUIRE( (print_object->get_support_material_object()->m_top_contacts.size() == 1 &&
         print_object->get_support_material_object()->m_raft_layers.size() == 2 ));
 }
-//
-//// Check intermediate support material shall be extruded at a layer height of maximum_support_layer_height
-//// The default is 0.8 * nozzle diameter.
+
+/// Check intermediate support material shall be extruded at a layer height of maximum_support_layer_height
+/// The default is 0.8 * nozzle diameter.
 //TEST_CASE("supports_test_2", "T2") {
 //    // Create a model.
-//    Model* model = create_model("overhangs");
+//    Model model = model.read_from_file("/home/ahmedsamir/FreeTime/models/microsoft-original-3mf/Star Trophy.3mf");
+//    IO::TMF::write(model, "SAMMRA.3mf");
 //
 //    // Create Print.
 //    Print print = Print();
 //    print.config.set_deserialize("nozzle_diameter", "0.4");
 //    print.default_object_config.set_deserialize("raft_layers", "0");
+//    print.default_object_config.set_deserialize("support_material", "1");
+//    print.default_object_config.set_deserialize("layer_height", "0.3");
 //
-//    print.add_model_object(model->objects[0]);
+//    print.add_model_object(model.objects[0]);
 //
 //    PrintObject* print_object = print.objects.front();
 //    print_object->_slice();
 //    print_object->_generate_support_material();
 //
-//    REQUIRE (1 == 1);
-//
-////    REQUIRE(print_object->support_layer_count() > 0);
-////    REQUIRE(abs(print_object->support_layers[1]->height - 0.4 * 0.8) < EPSILON);
+//    REQUIRE(print_object->get_support_material_object()->m_layers_sorted.size() > 0);
+//    REQUIRE(abs(print_object->get_support_material_object()->m_intermediate_layers[3]->height ) < EPSILON);
 //}
-//
-///// Test for this requirement.
-///*
-// The distance from the top of the support to the bottom of the supported structure shall be defined as:
-// contact_distance_z === or as support_material_contact_distance in print config.
-// contact_distance_z represents the real gap between the top of the generated support and the desired bottom of the above (bridging) layer.
-// contact_distance_z of 0 is useful for soluble supports.
-// Note: contact_distance_z + nozzle_diameter is the distance from the top of the bridging layer to the top of the support.
-// */
+
+/// Test for this requirement.
+/*
+ The distance from the top of the support to the bottom of the supported structure shall be defined as:
+ contact_distance_z === or as support_material_contact_distance in print config.
+ contact_distance_z represents the real gap between the top of the generated support and the desired bottom of the above (bridging) layer.
+ contact_distance_z of 0 is useful for soluble supports.
+ Note: contact_distance_z + nozzle_diameter is the distance from the top of the bridging layer to the top of the support.
+ */
 //TEST_CASE("supports_test_3", "T3") {
 //    // Create a model.
 //    Model* model = create_model("20mm_cube");
@@ -137,3 +139,7 @@ TEST_CASE("supports_test_1", "T1")
 ////    REQUIRE(1 + layers_z_correct);
 //}
 
+
+TEST_CASE("supports_test_4", "T4") {
+
+}
