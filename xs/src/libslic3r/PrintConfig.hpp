@@ -229,6 +229,7 @@ class PrintObjectConfig : public virtual StaticPrintConfig
         OPT_PTR(support_material_spacing);
         OPT_PTR(support_material_speed);
         OPT_PTR(support_material_threshold);
+        OPT_PTR(support_material_xy_spacing);
         OPT_PTR(xy_size_compensation);
         OPT_PTR(sequential_print_priority);
         

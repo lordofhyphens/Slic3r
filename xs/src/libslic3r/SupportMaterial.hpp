@@ -13,6 +13,7 @@
 #include "Geometry.hpp"
 #include "ClipperUtils.hpp"
 #include "SupportParameters.hpp"
+#include "Fill/Fill.hpp"
 
 using namespace std;
 

@@ -175,6 +175,18 @@ class ExtrusionLoop : public ExtrusionEntity
     };
 };
 
+inline void extrusion_entities_append_paths(ExtrusionEntitiesPtr &dst, Polylines &&polylines, ExtrusionRole role, double mm3_per_mm, float width, float height)
+{
+    dst.reserve(dst.size() + polylines.size());
+    for (Polyline &polyline : polylines)
+        if (polyline.is_valid()) {
+            ExtrusionPath *extrusion_path = new ExtrusionPath(role, mm3_per_mm, width, height);
+            dst.push_back(extrusion_path);
+            extrusion_path->polyline = std::move(polyline);
+        }
+    polylines.clear();
+}
+
 }
 
 #endif

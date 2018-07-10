@@ -1405,7 +1405,7 @@ PrintConfigDef::PrintConfigDef()
     def->gui_type = "f_enum_open";
     def->label = "Contact Z distance";
     def->category = "Support material";
-    def->tooltip = "The vertical distance between object and support material interface. Setting this to 0 will also prevent Slic3r from using bridge flow and speed for the first object layer.";
+    def->tooltip = "The vertical distance between object and support material interface. Setting this to 0 will also prevent Slic3r from using bridge flow and speed for the first object layer."; // TODO ASK? @Samir55 Why
     def->sidetext = "mm";
     def->cli = "support-material-contact-distance=f";
     def->min = 0;
@@ -1415,7 +1415,42 @@ PrintConfigDef::PrintConfigDef()
     def->enum_labels.push_back("0.2 (detachable)");
     def->default_value = new ConfigOptionFloat(0.2);
 
-    def = this->add("support_material_max_layers", coInt);
+    def = this->add("support_material_xy_spacing", coFloatOrPercent); // TODO @SAMIR55
+    def->label = "XY separation between an object and its support";
+    def->category = "Support material";
+    def->tooltip = "XY separation between an object and its support. If expressed as percentage "
+                         "(for example 50%), it will be calculated over external perimeter width.";
+    def->sidetext = "mm or %";
+    def->cli = "support-material-xy-spacing=s";
+    def->ratio_over = "external_perimeter_extrusion_width";
+    def->min = 0;
+    // Default is half the external perimeter width.
+    def->default_value = new ConfigOptionFloatOrPercent(50, true);
+
+    def = this->add("support_material_interface_contact_loops", coBool); // TODO @SAMIR55
+    def->label = "Interface loops";
+    def->category = "Support material";
+    def->tooltip = "Cover the top contact layer of the supports with loops. Disabled by default.";
+    def->cli = "support-material-interface-contact-loops!";
+    def->default_value = new ConfigOptionBool(false);
+
+    def = this->add("support_material_synchronize_layers", coBool); // TODO @SAMIR55
+    def->label = "Synchronize with object layers";
+    def->category = "Support material";
+    def->tooltip = "Synchronize support layers with the object print layers. This is useful "
+                         "with multi-material printers, where the extruder switch is expensive.";
+    def->cli = "support-material-synchronize-layers!";
+    def->default_value = new ConfigOptionBool(false);
+
+    def = this->add("support_material_with_sheath", coBool); // TODO @SAMIR55
+    def->label = "With sheath around the support";
+    def->category = "Support material";
+    def->tooltip = "Add a sheath (a single perimeter line) around the base support. This makes "
+                         "the support more reliable, but also more difficult to remove.";
+    def->cli = "support-material-with-sheath!";
+    def->default_value = new ConfigOptionBool(true);
+
+    def = this->add("support_material_max_layers", coInt); // TODO @SAMIR55 NOT in PRUSA
     def->label = "Max layer count for supports";
     def->category = "Support material";
     def->tooltip = "Disable support generation above this layer. Setting this to 0 will disable this feature.";
@@ -1493,7 +1528,7 @@ PrintConfigDef::PrintConfigDef()
     def->min = 0;
     def->default_value = new ConfigOptionFloat(0);
 
-    def = this->add("support_material_interface_speed", coFloatOrPercent);
+    def = this->add("support_material_interface_speed", coFloatOrPercent); // TODO @SAMIR55
     def->label = "↳ interface";
     def->full_label = "Support material interface speed";
     def->gui_type = "f_enum_open";
@@ -1510,7 +1545,7 @@ PrintConfigDef::PrintConfigDef()
     def = this->add("support_material_pattern", coEnum);
     def->label = "Pattern";
     def->category = "Support material";
-    def->tooltip = "Pattern used to generate support material.";
+    def->tooltip = "Pattern used to generate support material."; // TODO @SAMIR55
     def->cli = "support-material-pattern=s";
     def->enum_keys_map = ConfigOptionEnum<SupportMaterialPattern>::get_enum_values();
     def->enum_values.push_back("rectilinear");
@@ -1523,7 +1558,7 @@ PrintConfigDef::PrintConfigDef()
     def->enum_labels.push_back("pillars");
     def->default_value = new ConfigOptionEnum<SupportMaterialPattern>(smpPillars);
 
-    def = this->add("support_material_pillar_size", coFloat);
+    def = this->add("support_material_pillar_size", coFloat); // TODO @SAMIR55
     def->label = "Pillar size";
     def->category = "Support material";
     def->tooltip = "Size of the pillars in the pillar support pattern";
@@ -1532,7 +1567,7 @@ PrintConfigDef::PrintConfigDef()
     def->min = 0;
     def->default_value = new ConfigOptionFloat(2.5);
 
-    def = this->add("support_material_pillar_spacing", coFloat);
+    def = this->add("support_material_pillar_spacing", coFloat); // TODO @SAMIR55
     def->label = "Pillar spacing";
     def->category = "Support material";
     def->tooltip = "Spacing between pillars in the pillar support pattern";
@@ -1541,7 +1576,7 @@ PrintConfigDef::PrintConfigDef()
     def->min = 0;
     def->default_value = new ConfigOptionFloat(10);
 
-    def = this->add("support_material_spacing", coFloat);
+    def = this->add("support_material_spacing", coFloat); // @SAMIR55 DONE
     def->label = "Pattern spacing";
     def->category = "Support material";
     def->tooltip = "Spacing between support material lines.";
@@ -1553,7 +1588,7 @@ PrintConfigDef::PrintConfigDef()
 
 
 
-    def = this->add("support_material_speed", coFloat);
+    def = this->add("support_material_speed", coFloat); // @SAMIR55 DONE
     def->label = "Support material";
     def->gui_type = "f_enum_open";
     def->category = "Support material";
@@ -1565,10 +1600,12 @@ PrintConfigDef::PrintConfigDef()
     def->enum_labels.push_back("auto");
     def->default_value = new ConfigOptionFloat(60);
 
-    def = this->add("support_material_threshold", coFloatOrPercent);
+    def = this->add("support_material_threshold", coFloatOrPercent); // @SAMIR55 DONE
     def->label = "Overhang threshold";
     def->category = "Support material";
-    def->tooltip = "Support material will not be generated for overhangs whose slope angle (90° = vertical) is above the given threshold. In other words, this value represent the most horizontal slope (measured from the horizontal plane) that you can print without support material. Set to a percentage to automatically detect based on some % of overhanging perimeter width instead (recommended).";
+    def->tooltip = "Support material will not be generated for overhangs whose slope angle (90° = vertical) is"
+        " above the given threshold. In other words, this value represent the most horizontal slope (measured from the horizontal plane) that you can print without support material."
+        " Set to a percentage to automatically detect based on some % of overhanging perimeter width instead (recommended).";
     def->sidetext = "° (or %)";
     def->cli = "support-material-threshold=s";
     def->min = 0;
