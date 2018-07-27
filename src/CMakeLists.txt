@@ -212,6 +212,7 @@ set(SLIC3R_TEST_SOURCES
     ${TESTDIR}/libslic3r/test_test_data.cpp
     ${TESTDIR}/libslic3r/test_geometry.cpp
 )
+
 add_executable(slic3r slic3r.cpp)
 target_compile_features(slic3r PUBLIC cxx_std_14)
 #set_target_properties(slic3r PROPERTIES LINK_SEARCH_START_STATIC 1)
