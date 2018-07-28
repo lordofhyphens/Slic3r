@@ -1,20 +1,20 @@
 #include <catch.hpp>
-#include <libslic3r/IO.hpp>
-#include <libslic3r/GCodeReader.hpp>
+#include "GCodeReader.hpp"
+#include "test_data.hpp"
 
-#include "libslic3r.h"
-#include "TriangleMesh.hpp"
-#include "Model.hpp"
-#include "SupportMaterial.hpp"
+// For IDE suggestions
+#include "../../../build/external/Catch/include/catch.hpp"
 
 using namespace std;
 using namespace Slic3r;
+using namespace Slic3r::Test;
 
-void test_1_checks(Print &print, bool &a, bool &b, bool &c, bool &d);
-bool test_6_checks(Print &print);
+// Sub test functions.
+void test_1_check(Print &print, bool &a, bool &b, bool &c, bool &d);
+bool test_6_check(config_ptr &config);
 
 // Testing 0.1: supports material member functions.
-TEST_CASE("", "")
+TEST_CASE("A", "A")
 {
     // Create a mesh & modelObject.
     TriangleMesh mesh = TriangleMesh::make_cube(20, 20, 20);
@@ -35,7 +35,7 @@ TEST_CASE("", "")
     print.default_object_config.support_material = 1;
     print.default_object_config.set_deserialize("raft_layers", "3");
     print.add_model_object(model.objects[0]);
-    print.objects.front()->_slice();
+    print.objects.front()->slice();
 
 
     SupportMaterial *support = print.objects.front()->_support_material();
@@ -69,10 +69,10 @@ SCENARIO("SupportMaterial: support_layers_z and contact_distance")
             print.default_object_config.set_deserialize("first_layer_height", "0.4");
 
             print.add_model_object(model.objects[0]);
-            print.objects.front()->_slice();
+            print.objects.front()->slice();
             bool a, b, c, d;
 
-            test_1_checks(print, a, b, c, d);
+            test_1_check(print, a, b, c, d);
             THEN("First layer height is honored") {
                 REQUIRE(a == true);
             }
@@ -93,7 +93,7 @@ SCENARIO("SupportMaterial: support_layers_z and contact_distance")
             print.objects.front()->_slice();
             bool a, b, c, d;
 
-            test_1_checks(print, a, b, c, d);
+            test_1_check(print, a, b, c, d);
             THEN("First layer height is honored") {
                 REQUIRE(a == true);
             }
@@ -116,7 +116,7 @@ SCENARIO("SupportMaterial: support_layers_z and contact_distance")
             print.objects.front()->_slice();
             bool a, b, c, d;
 
-            test_1_checks(print, a, b, c, d);
+            test_1_check(print, a, b, c, d);
             THEN("First layer height is honored") {
                 REQUIRE(a == true);
             }
@@ -132,6 +132,106 @@ SCENARIO("SupportMaterial: support_layers_z and contact_distance")
         }
     }
 }
+
+// Test 2.
+TEST_CASE("B", "B")
+{
+    auto config{Config::new_from_defaults()};
+    config->set("raft_layers", 3);
+    config->set("brim_width", 0);
+    config->set("skirts", 0);
+    config->set("support_material_extruder", 2);
+    config->set("support_material_interface_extruder", 2);
+    config->set("layer_height", 0.4);
+    config->set("first_layer_height", 0.4);
+
+    // Initialize a print object from the config.
+    Slic3r::Model model;
+    auto gcode{std::stringstream("")};
+
+    auto print{Slic3r::Test::init_print({TestMesh::overhang}, model, config)};
+    Slic3r::Test::gcode(gcode, print); // 'no conflict between raft/support and brim'
+
+    int tool = 0;
+    auto parser{Slic3r::GCodeReader()};
+    parser.parse_stream(gcode,
+                        [&tool,&config](Slic3r::GCodeReader &self,
+                                  const Slic3r::GCodeReader::GCodeLine &line)
+                        {
+                            if (line.extruding()) {
+                                if(self.Z <= (config->getInt("raft_layers") * config->getFloat("layer_height"))) {
+                                    REQUIRE(tool != config->getInt("support_material_extruder") - 1); // not extruding raft with support material extruder.
+                                } else {
+                                    REQUIRE(tool == config->getInt("support_material_extruder") - 1); // support material exceeds raft layers.
+                                    // TODO: we should test that full support is generated when we use raft too
+                                }
+                            }
+                        });
+    /*
+    ok my $gcode = Slic3r::Test::gcode($print), 'no conflict between raft/support and brim'; // TODO
+
+    my $tool = 0;
+    Slic3r::GCode::Reader->new->parse($gcode, sub {
+        my ($self, $cmd, $args, $info) = @_;
+
+        if ($cmd =~ /^T(\d+)/) {
+            $tool = $1; // TODO
+        } elsif ($info->{extruding}) {
+        }
+    });
+ */
+
+
+}
+
+
+// Test 6.
+SCENARIO("SupportMaterial: Checking bridge speed")
+{
+    GIVEN("Print object") {
+        auto config{Config::new_from_defaults()};
+        config->set("brim_width", 0);
+        config->set("skirts", 0);
+        config->set("support_material", 1);
+        config->set("top_solid_layers", 0); // so that we don't have the internal bridge over infill.
+        config->set("bridge_speed", 99);
+        config->set("cooling", 0);
+        config->set("first_layer_speed", "100%");
+
+        WHEN("support_material_contact_distance = 0.2") {
+            config->set("support_material_contact_distance", 0.2);
+
+            bool check = test_6_check(config);
+            REQUIRE(check == true); // bridge speed is used.
+        }
+
+        WHEN("support_material_contact_distance = 0") {
+            config->set("support_material_contact_distance", 0);
+
+            bool check = test_6_check(config);
+            REQUIRE(check == true); // bridge speed is not used.
+        }
+
+        WHEN("support_material_contact_distance = 0.2 & raft_layers = 5") {
+            config->set("support_material_contact_distance", 0.2);
+            config->set("raft_layers", 5);
+
+            bool check = test_6_check(config);
+            REQUIRE(check == true); // bridge speed is used.
+        }
+
+        WHEN("support_material_contact_distance = 0 & raft_layers = 5") {
+            config->set("support_material_contact_distance", 0);
+            config->set("raft_layers", 5);
+
+            bool check = test_6_check(config);
+            REQUIRE(check == true); // bridge speed is not used.
+        }
+    }
+}
+
+// Test 7.
+
 
 // Test 8.
 TEST_CASE("SupportMaterial: forced support is generated", "")
@@ -169,67 +269,7 @@ TEST_CASE("SupportMaterial: forced support is generated", "")
     REQUIRE(check == true);
 }
 
-// Test 6.
-SCENARIO("SupportMaterial: Checking bridge speed")
-{
-    GIVEN("Print object") {
-        // Create a mesh & modelObject.
-        TriangleMesh mesh = TriangleMesh::make_cube(20, 20, 20);
-
-        Model model = Model();
-        ModelObject *object = model.add_object();
-        object->add_volume(mesh);
-        model.add_default_instances();
-        model.align_instances_to_origin();
-
-        Print print = Print();
-        print.config.brim_width = 0;
-        print.config.skirts = 0;
-        print.config.skirts = 0;
-        print.default_object_config.support_material = 1;
-        print.default_region_config.top_solid_layers = 0; // so that we don't have the internal bridge over infill.
-        print.default_region_config.bridge_speed = 99;
-        print.config.cooling = 0;
-        print.config.set_deserialize("first_layer_speed", "100%");
-
-        WHEN("support_material_contact_distance = 0.2") {
-            print.default_object_config.support_material_contact_distance = 0.2;
-            print.add_model_object(model.objects[0]);
-
-            bool check = test_6_checks(print);
-            REQUIRE(check == true); // bridge speed is used.
-        }
-
-        WHEN("support_material_contact_distance = 0") {
-            print.default_object_config.support_material_contact_distance = 0;
-            print.add_model_object(model.objects[0]);
-
-            bool check = test_6_checks(print);
-            REQUIRE(check == true); // bridge speed is not used.
-        }
-
-        WHEN("support_material_contact_distance = 0.2 & raft_layers = 5") {
-            print.default_object_config.support_material_contact_distance = 0.2;
-            print.default_object_config.raft_layers = 5;
-            print.add_model_object(model.objects[0]);
-
-            bool check = test_6_checks(print);
-            REQUIRE(check == true); // bridge speed is used.
-        }
-
-        WHEN("support_material_contact_distance = 0 & raft_layers = 5") {
-            print.default_object_config.support_material_contact_distance = 0;
-            print.default_object_config.raft_layers = 5;
-            print.add_model_object(model.objects[0]);
-
-            bool check = test_6_checks(print);
-
-            REQUIRE(check == true); // bridge speed is not used.
-        }
-    }
-}
-
-void test_1_checks(Print &print, bool &a, bool &b, bool &c, bool &d)
+void test_1_check(Print &print, bool &a, bool &b, bool &c, bool &d)
 {
     vector<coordf_t> contact_z = {1.9};
     vector<coordf_t> top_z = {1.1};
@@ -275,21 +315,27 @@ void test_1_checks(Print &print, bool &a, bool &b, bool &c, bool &d)
     d = !wrong_top_spacing;
 }
 
-// TODO
-bool test_6_checks(Print &print)
+bool test_6_check(config_ptr &config)
 {
-    bool has_bridge_speed = true;
+    bool has_bridge_speed = false;
 
-    // Pre-Processing.
-    PrintObject *print_object = print.objects.front();
-    print_object->_infill();
-    SupportMaterial *support_material = print.objects.front()->_support_material();
-    support_material->generate(print_object);
-    // TODO but not needed in test 6 (make brims and make skirts).
+    // Initialize a print object from the config.
+    Slic3r::Model model;
+    auto print{Slic3r::Test::init_print({TestMesh::overhang}, model, config)};
 
-    // Exporting gcode.
-    // TODO validation found in Simple.pm
+    // Get gcode.
+    auto gcode{std::stringstream("")};
+    Slic3r::Test::gcode(gcode, print);
 
+    auto parser{Slic3r::GCodeReader()};
+    parser.parse_stream(gcode,
+                        [&has_bridge_speed, &config](Slic3r::GCodeReader &self,
+                                                     const Slic3r::GCodeReader::GCodeLine &line)
+                        {
+                            if (line.extruding() && line.new_F() == config->getFloat("bridge_speed") * 60) {
+                                has_bridge_speed = true;
+                            }
+                        });
 
     return has_bridge_speed;
 }
