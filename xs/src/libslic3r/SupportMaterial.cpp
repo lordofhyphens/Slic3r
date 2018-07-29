@@ -76,9 +76,6 @@ SupportMaterial::generate(PrintObject *object)
                                                  get_keys_sorted(top),
                                                  get_max_layer_height(object));
 
-    for (auto ss : support_z)
-        printf("Support_Z val %f\n", (ss));
-
     // If we wanted to apply some special logic to the first support layers lying on
     // object's top surfaces this is the place to detect them.
     map<int, Polygons> shape;
@@ -133,7 +130,7 @@ SupportMaterial::support_layers_z(vector<coord_t> contact_z,
     // we use max() to prevent many ultra-thin layers to be inserted in case
     // layer_height > nozzle_diameter * 0.75.
     coordf_t nozzle_diameter = config->nozzle_diameter.get_at(static_cast<size_t>(
-                                                              object_config->support_material_extruder - 1));
+                                                                  object_config->support_material_extruder - 1));
     coordf_t support_material_height = max(unscale(max_object_layer_height), (nozzle_diameter * 0.75));
     coordf_t _contact_distance = this->contact_distance(support_material_height, nozzle_diameter);
 
@@ -657,7 +654,7 @@ SupportMaterial::generate_base_layers(vector<coord_t> support_z,
     // Let's now generate support layers under interface layers.
     map<int, Polygons> base;
     {
-        for (auto i = static_cast<int>(support_z.size()) - 1; i >= 0; i--) {
+        for (auto i = static_cast<int>(support_z.size()) - 2; i >= 0; i--) {
             auto overlapping_layers = this->overlapping_layers(i, support_z);
             vector<coord_t> overlapping_z;
             for (auto el : overlapping_layers)
@@ -667,23 +664,29 @@ SupportMaterial::generate_base_layers(vector<coord_t> support_z,
             // (1 interface layer means we only have contact layer, so $interface->{$i+1} is empty).
             Polygons upper_contact;
             if (object_config->support_material_interface_layers.value <= 1) {
-                append_to(upper_contact, (i + 1 < int(support_z.size()) ? contact[support_z[i + 1]] : contact[-1]));
+                if (i + 1 < int(support_z.size()) && contact.count(support_z[i + 1]) > 0)
+                    append_to(upper_contact, contact[support_z[i + 1]]);
             }
 
             Polygons ps_1;
-            append_to(ps_1, base[i + 1]); // support regions on upper layer.
-            append_to(ps_1, interface[i + 1]); // interface regions on upper layer
-            append_to(ps_1, upper_contact); // contact regions on upper layer
+            if (base.count(i + 1) > 0)
+                append_to(ps_1, base[i + 1]); // support regions on upper layer.
+            if (interface.count(i + 1) > 0)
+                append_to(ps_1, interface[i + 1]); // interface regions on upper layer
+            if (upper_contact.size() > 0)
+                append_to(ps_1, upper_contact); // contact regions on upper layer
 
             Polygons ps_2;
             for (auto el : overlapping_z) {
                 if (top.count(el) > 0)
                     append_to(ps_2, top[el]); // top slices on this layer.
-                if (interface.count(el) > 0)
-                    append_to(ps_2, interface[el]); // interface regions on this layer.
                 if (contact.count(el) > 0)
                     append_to(ps_2, contact[el]); // contact regions on this layer.
             }
+            for (auto el : overlapping_layers)
+                if (interface.count(el) > 0)
+                    append_to(ps_2, interface[el]); // interface regions on this layer.
+
 
             base[i] = diff(
                 ps_1,
@@ -823,8 +826,6 @@ SupportMaterial::overlapping_layers(int layer_idx, const vector<coord_t> &suppor
     coord_t z_min = layer_idx == 0 ? 0 : support_z[layer_idx - 1];
 
     for (int i = 0; i < int(support_z.size()); i++) {
-        if (i == layer_idx) continue;
-
         coord_t z_max2 = support_z[i];
         coord_t z_min2 = i == 0 ? 0 : support_z[i - 1];
 
