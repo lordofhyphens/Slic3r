@@ -110,8 +110,6 @@ PrintGCode::output()
     }
 
     // set bed temperature
-    auto bed_temp_regex { std::regex("M(?:190|140)", std::regex_constants::icase)};
-    auto ex_temp_regex { std::regex("M(?:109|104)", std::regex_constants::icase)};
     auto temp{config.first_layer_bed_temperature.getFloat()};
     if (config.has_heatbed && temp > 0 && std::regex_search(config.start_gcode.getString(), bed_temp_regex)) {
         fh << gcodegen.writer.set_bed_temperature(temp, 1);
@@ -178,6 +176,58 @@ PrintGCode::output()
     // Do all objects for each layer.
 
     if (config.complete_objects) {
+        // print objects from the smallest to the tallest to avoid collisions
+        // when moving onto next object starting point
+        std::sort(print.objects.begin(), print.objects.end(), [] (const PrintObject* a, const PrintObject* b) {
+            return (a->config.sequential_print_priority < a->config.sequential_print_priority) || (a->size.z < b->size.z);
+        });
+        size_t finished_objects {0};
+        
+        for (size_t obj_idx {0}; obj_idx < print.objects.size(); ++obj_idx) {
+            PrintObject& object {*(this->objects.at(obj_idx))};
+            for (const Point& copy : object._shifted_copies) {
+                if (finished_objects > 0) {
+                    gcodegen.set_origin(Pointf::new_unscale(copy));
+                    gcodegen.enable_cooling_markers = false;
+                    gcodegen.avoid_crossing_perimeters.use_external_mp_once = true;
+                    fh << gcodegen.retract();
+                    fh << gcodegen.travel_to(Point(0,0), erNone, "move to origin position for next object");
+
+                    gcodegen.enable_cooling_markers = true;
+                    // disable motion planner when traveling to first object point
+                    gcodegen.avoid_crossing_perimeters.disable_once = true;
+                }
+                std::vector<Layer*> layers;
+                layers.reserve(object.layers.size() + object.support_layers.size());
+                for (auto l : object.layers) {
+                    layers.emplace_back(l);
+                }
+                for (auto l : object.support_layers) {
+                    layers.emplace_back(static_cast<Layer*>(l));
+                }
+                std::sort(layers.begin(), layers.end(), [] (const Layer* a, const Layer* b) { return a->print_z < b->print_z; });
+                for (Layer* layer : layers) {
+                    // if we are printing the bottom layer of an object, and we have already finished
+                    // another one, set first layer temperatures. this happens before the Z move
+                    // is triggered, so machine has more time to reach such temperatures
+                    if (layer->id() == 0 && finished_objects > 0) {
+                        if (config.first_layer_bed_temperature > 0 &&
+                                config.has_heatbed &&
+                                std::regex_search(config.between_objects_gcode.getString(), bed_temp_regex)) 
+                        {
+                            fh << gcodegen.writer.set_bed_temperature(config.first_layer_bed_temperature);
+                        }
+                        if (std::regex_search(config.between_objects_gcode.getString(), ex_temp_regex)) {
+                            _print_first_layer_temperature(false);
+                        }
+                    }
+                    this->process_layer(obj_idx, layer, Points({copy}));
+                }
+                this->flush_filters();
+                finished_objects++;
+                this->_second_layer_things_done = false;
+            }
+        }
     } else {
         // order objects using a nearest neighbor search
         std::vector<Points::size_type> obj_idx {};
@@ -188,33 +238,34 @@ PrintGCode::output()
 
         std::vector<size_t> z;
         z.reserve(100); // preallocate with 100 layers
-        std::map<coord_t, LayerPtrs> layers {};
+        std::map<coord_t, std::map<size_t, LayerPtrs > > layers {};
         for (size_t idx = 0U; idx < print.objects.size(); ++idx) {
             const auto& object {*(objects.at(idx))};
             // sort layers by Z into buckets
             for (Layer* layer : object.layers) {
                 if (layers.count(scale_(layer->print_z)) == 0) { // initialize bucket if empty
-                    layers[scale_(layer->print_z)] = LayerPtrs();
+                    
+                    layers[scale_(layer->print_z)] = std::map<size_t, LayerPtrs >();
+                    layers[scale_(layer->print_z)][idx] = LayerPtrs();
                     z.emplace_back(scale_(layer->print_z));
                 }
-                layers[scale_(layer->print_z)].emplace_back(layer);
+                layers[scale_(layer->print_z)][idx].emplace_back(layer);
             }
             for (Layer* layer : object.support_layers) { // don't use auto here to not have to cast later
                 if (layers.count(scale_(layer->print_z)) == 0) { // initialize bucket if empty
-                    layers[scale_(layer->print_z)] = LayerPtrs();
-                    z.emplace_back(scale_(layer->print_z));
+                    layers[scale_(layer->print_z)] = std::map<size_t, LayerPtrs >();
+                    layers[scale_(layer->print_z)][idx] = LayerPtrs();
                 }
-                layers[scale_(layer->print_z)].emplace_back(layer);
+                layers[scale_(layer->print_z)][idx].emplace_back(layer);
             }
         }
 
         // pass the comparator to leave no doubt.
         std::sort(z.begin(), z.end(),  std::less<size_t>());
-        
         //  call process_layers in the order given by obj_idx
         for (const auto& print_z : z) {
             for (const auto& idx : obj_idx) {
-                for (const auto* layer : layers.at(print_z)) {
+                for (const auto* layer : layers[print_z][idx] ) {
                     this->process_layer(idx, layer, layer->object()->_shifted_copies);
                 }
             }
@@ -372,6 +423,16 @@ PrintGCode::process_layer(size_t idx, const Layer* layer, const Points& copies)
 
     // set new layer - this will change Z and force a retraction if retract_layer_change is enabled
     if (print.config.before_layer_gcode.getString().size() > 0) {
+        auto pp {*(gcodegen.placeholder_parser)};
+        pp.set("layer_num", gcodegen.layer_index);
+        pp.set("layer_z", layer->print_z);
+        pp.set("current_retraction", gcodegen.writer.extruder()->retracted);
+
+        gcode += apply_math(pp.process(print.config.before_layer_gcode.getString()));
+        gcode += "\n";
+    }
+    gcode += gcodegen.change_layer(*layer);
+    if (print.config.layer_gcode.getString().size() > 0) {
         auto pp {*(gcodegen.placeholder_parser)};
         pp.set("layer_num", gcodegen.layer_index);
         pp.set("layer_z", layer->print_z);

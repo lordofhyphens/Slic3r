@@ -37,7 +37,7 @@ SCENARIO("Extrusion width specifics", "[!mayfail]") {
             const auto layer_height { config->getFloat("layer_height") };
             parser.parse_stream(gcode, [&E_per_mm_bottom, layer_height] (Slic3r::GCodeReader& self, const Slic3r::GCodeReader::GCodeLine& line) 
             { 
-                if (self.Z == layer_height) { // only consider first layer
+                if (self.Z == Approx(layer_height).margin(0.01)) { // only consider first layer
                     if (line.extruding() && line.dist_XY() > 0) {
                         E_per_mm_bottom.emplace_back(line.dist_E() / line.dist_XY());
                     }
@@ -47,7 +47,7 @@ SCENARIO("Extrusion width specifics", "[!mayfail]") {
                 bool pass = false;
                 auto avg_E {std::accumulate(E_per_mm_bottom.cbegin(), E_per_mm_bottom.cend(), 0.0) / static_cast<double>(E_per_mm_bottom.size())};
 
-                pass = std::count_if(E_per_mm_bottom.cbegin(), E_per_mm_bottom.cend(), [avg_E] (double v) { return _equiv(v, avg_E, 0.015); }) == 0;
+                pass = (std::count_if(E_per_mm_bottom.cbegin(), E_per_mm_bottom.cend(), [avg_E] (const double& v) { return v == Approx(avg_E); }) == 0);
                 REQUIRE(pass == true);
                 REQUIRE(E_per_mm_bottom.size() > 0); // make sure it actually passed because of extrusion
             }

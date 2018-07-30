@@ -75,21 +75,21 @@ SupportMaterial::generate(PrintObject *object)
         this->generate_pillars_shape(contact, support_z, shape);
 
     // Propagate contact layers downwards to generate interface layers.
-    interface = generate_interface_layers(support_z, contact, top);
-    clip_with_object(interface, support_z, *object);
+    _interface = generate_interface_layers(support_z, contact, top);
+    clip_with_object(_interface, support_z, *object);
     if (!shape.empty())
-        clip_with_shape(interface, shape);
+        clip_with_shape(_interface, shape);
 
     // Propagate contact layers and interface layers downwards to generate
     // the main support layers.
-    base = generate_base_layers(support_z, contact, interface, top);
+    base = generate_base_layers(support_z, contact, _interface, top);
     clip_with_object(base, support_z, *object);
     if (!shape.empty())
         clip_with_shape(base, shape);
 
     // Detect what part of base support layers are "reverse interfaces" because they
     // lie above object's top surfaces.
-    generate_bottom_interface_layers(support_z, base, top, interface);
+    generate_bottom_interface_layers(support_z, base, top, _interface);
 
     // Install support layers into object.
     for (int i = 0; i < int(support_z.size()); i++) {
@@ -652,7 +652,7 @@ SupportMaterial::generate_pillars_shape(const map<coord_t, Polygons> &contact,
 map<int, Polygons>
 SupportMaterial::generate_base_layers(vector<coord_t> &support_z,
                                       map<coord_t, Polygons> &contact,
-                                      map<int, Polygons> &interface,
+                                      map<int, Polygons> &_interface,
                                       map<coord_t, Polygons> &top)
 {
     // Let's now generate support layers under interface layers.
@@ -677,7 +677,7 @@ SupportMaterial::generate_base_layers(vector<coord_t> &support_z,
                 append_to(ps_1, base[i + 1]); // support regions on upper layer.
 
             if (interface.count(i + 1) > 0)
-                append_to(ps_1, interface[i + 1]); // interface regions on upper layer
+                append_to(ps_1, _interface[i + 1]); // interface regions on upper layer
 
             if (!upper_contact.empty())
                 append_to(ps_1, upper_contact); // contact regions on upper layer
@@ -688,8 +688,8 @@ SupportMaterial::generate_base_layers(vector<coord_t> &support_z,
                     append_to(ps_2, top[el]); // top slices on this layer.
 
             for (auto el : overlapping_layers)
-                if (interface.count(el) > 0)
-                    append_to(ps_2, interface[el]); // interface regions on this layer.
+                if (_interface.count(el) > 0)
+                    append_to(ps_2, _interface[el]); // interface regions on this layer.
 
             for (auto el : overlapping_z)
                 if (contact.count(el) > 0)
@@ -712,7 +712,7 @@ SupportMaterial::generate_interface_layers(vector<coord_t> &support_z,
                                            map<coord_t, Polygons> &top)
 {
     // let's now generate interface layers below contact areas.
-    map<int, Polygons> interface;
+    map<int, Polygons> _interface;
     int interface_layers_num = object_config->support_material_interface_layers;
 
     for (int layer_id = 0; layer_id < int(support_z.size()); layer_id++) {
@@ -737,8 +737,8 @@ SupportMaterial::generate_interface_layers(vector<coord_t> &support_z,
             // investigation.
             Polygons ps_1;
             append_to(ps_1, _contact); // clipped projection of the current contact regions.
-            if (interface.count(i) > 0)
-                append_to(ps_1, interface[i]); // interface regions already applied to this layer.
+            if (_interface.count(i) > 0)
+                append_to(ps_1, _interface[i]); // interface regions already applied to this layer.
 
             Polygons ps_2;
             for (auto el : overlapping_z) {
@@ -748,21 +748,21 @@ SupportMaterial::generate_interface_layers(vector<coord_t> &support_z,
                     append_to(ps_2, contact[el]); // contact regions on this layer.
             }
 
-            _contact = interface[i] = diff(
+            _contact = _interface[i] = diff(
                 ps_1,
                 ps_2,
                 true
             );
         }
     }
-    return interface;
+    return _interface;
 }
 
 void
 SupportMaterial::generate_bottom_interface_layers(const vector<coord_t> &support_z,
                                                   map<int, Polygons> &base,
                                                   map<coord_t, Polygons> &top,
-                                                  map<int, Polygons> &interface)
+                                                  map<int, Polygons> &_interface)
 {
     // If no interface layers are allowed, don't generate bottom interface layers.
     if (object_config->support_material_interface_layers.value == 0)
@@ -804,8 +804,8 @@ SupportMaterial::generate_bottom_interface_layers(const vector<coord_t> &support
                 );
 
                 // Add the new interface area to interface.
-                append_to(interface[layer_id], interface_area);
-                cout << interface[layer_id].size() << " " << interface_area.size() << endl;
+                append_to(_interface[layer_id], interface_area);
+                cout << _interface[layer_id].size() << " " << interface_area.size() << endl;
             }
 
             interface_layers++;
@@ -910,7 +910,7 @@ SupportMaterial::process_layer(int layer_id, toolpaths_params params)
 
     Polygons overhang = this->overhang.count(z) > 0 ? this->overhang[z] : Polygons();
     Polygons contact = this->contact.count(z) > 0 ? this->contact[z] : Polygons();
-    Polygons interface = this->interface.count(layer_id) > 0 ? this->interface[layer_id] : Polygons();
+    Polygons _interface = this->_interface.count(layer_id) > 0 ? this->_interface[layer_id] : Polygons();
     Polygons base = this->base.count(layer_id) > 0 ? this->base[layer_id] : Polygons();
 
     // Islands.
@@ -918,7 +918,7 @@ SupportMaterial::process_layer(int layer_id, toolpaths_params params)
         Polygons ps;
         append_to(ps, base);
         append_to(ps, contact);
-        append_to(ps, interface);
+        append_to(ps, _interface);
         layer->support_islands.append(union_ex(ps));
     }
 
@@ -1041,28 +1041,28 @@ SupportMaterial::process_layer(int layer_id, toolpaths_params params)
     fillers["support"]->bounding_box = bounding_box;
 
     // Interface and contact infill.
-    if (!interface.empty() || !contact_infill.empty()) {
+    if (!_interface.empty() || !contact_infill.empty()) {
         // Make interface layers alternate angles by 90 degrees.
         double alternate_angle = params.interface_angle + (90 * ((layer_id + 1) % 2));
         fillers["interface"]->angle = static_cast<float>(Geometry::deg2rad(alternate_angle));
         fillers["interface"]->min_spacing = _interface_flow.spacing();
 
         // Find centerline of the external loop.
-        interface = offset2(interface, +SCALED_EPSILON, -(SCALED_EPSILON + _interface_flow.scaled_width() / 2));
+        _interface = offset2(_interface, +SCALED_EPSILON, -(SCALED_EPSILON + _interface_flow.scaled_width() / 2));
 
         // Join regions by offsetting them to ensure they're merged.
         {
             Polygons ps;
-            append_to(ps, interface);
+            append_to(ps, _interface);
             append_to(ps, contact_infill);
-            interface = offset(ps, SCALED_EPSILON);
+            _interface = offset(ps, SCALED_EPSILON);
         }
 
         // turn base support into interface when it's contained in our holes
         // (this way we get wider interface anchoring).
         {
-            Polygons ps = interface;
-            interface = Polygons();
+            Polygons ps = _interface;
+            _interface = Polygons();
             for (auto p: ps) {
                 if (p.is_clockwise()) {
                     Polygon p2 = p;
@@ -1070,13 +1070,13 @@ SupportMaterial::process_layer(int layer_id, toolpaths_params params)
                     if (diff(Polygons({p2}), base, 1).empty())
                         continue;
                 }
-                interface.push_back(p);
+                _interface.push_back(p);
             }
         }
-        base = diff(base, interface);
+        base = diff(base, _interface);
 
         ExtrusionPaths paths;
-        ExPolygons expolygons = union_ex(interface);
+        ExPolygons expolygons = union_ex(_interface);
         for (const auto &expolygon : expolygons) {
             Surface surface(stInternal, expolygon);
             fillers["interface"]->density = params.interface_density;

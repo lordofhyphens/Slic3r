@@ -114,15 +114,18 @@ Print::process()
 void
 Print::make_brim() 
 {
+    if (this->state.is_done(psBrim)) return;
     // prereqs
     for(auto& obj: this->objects) {
         obj->make_perimeters();
         obj->infill();
         obj->generate_support_material();
     }
-
+    this->state.set_started(psBrim);
     if (this->status_cb != nullptr)
         this->status_cb(88, "Generating brim");
+    this->_make_brim();
+    this->state.set_done(psBrim);
 }
 
 void
@@ -233,7 +236,7 @@ Print::make_skirt()
     //size_t extruder_idx = 0;
     
     // new to the cpp implementation
-    float e_per_mm, extruded_length = 0;
+    float e_per_mm {0.0}, extruded_length = 0;
     size_t extruders_warm = 0;
     if (this->config.min_skirt_length.getFloat() > 0) {
         //my $config = Config::GCode();
