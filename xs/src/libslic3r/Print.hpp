@@ -30,7 +30,9 @@ class InvalidObjectException : public std::exception {};
 class Print;
 class PrintObject;
 class ModelObject;
+#ifndef SLIC3RXS
 class SupportMaterial;
+#endif // SLIC3RXS
 
 // Print step IDs for keeping track of the print state.
 enum PrintStep {
@@ -139,9 +141,6 @@ class PrintObject
     Layer* add_layer(int id, coordf_t height, coordf_t print_z, coordf_t slice_z);
     void delete_layer(int idx);
 
-    SupportMaterial* _support_material();
-    
-    Flow _support_material_flow(FlowRole role = frSupportMaterial);
     size_t support_layer_count() const;
     void clear_support_layers();
     SupportLayer* get_support_layer(int idx) { return this->support_layers.at(idx); };
@@ -168,6 +167,11 @@ class PrintObject
     void _infill();
 
 #ifndef SLIC3RXS
+    // Get a support material object having this current print configs.
+    SupportMaterial* _support_material();
+
+    /// Generate a support flow object.
+    Flow _support_material_flow(FlowRole role = frSupportMaterial);
 
     /// Initialize and generate support material.
     void generate_support_material();

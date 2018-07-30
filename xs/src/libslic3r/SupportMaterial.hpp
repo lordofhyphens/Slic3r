@@ -118,9 +118,9 @@ public:
 
     void clip_with_shape(map<int, Polygons> &support, map<int, Polygons> &shape);
 
-    // This method removes object silhouette from support material
-    // (it's used with interface and base only). It removes a bit more,
-    // leaving a thin gap between object and support in the XY plane.
+    /// This method removes object silhouette from support material
+    /// (it's used with interface and base only). It removes a bit more,
+    /// leaving a thin gap between object and support in the XY plane.
     void clip_with_object(map<int, Polygons> &support,
                           vector<coord_t> support_z,
                           PrintObject &object); // DONE Partially
@@ -142,13 +142,13 @@ private:
           object(nullptr)
     {}
 
-    // Return polygon vector given a vector of surfaces.
+    /// Return polygon vector given a vector of surfaces.
     Polygons p(SurfacesPtr &surfaces);
 
-    // Get the keys of an std::map sorted ascendingly.
+    /// Get the keys of an std::map sorted ascendingly.
     vector<coord_t> keys_sorted(map<coord_t, Polygons> &map_); // DONE
 
-    // Get the maximum layer height given a print object.
+    /// Get the maximum layer height given a print object.
     coord_t max_layer_height(PrintObject *object); // DONE
 
     Polygon create_circle(coord_t radius);
