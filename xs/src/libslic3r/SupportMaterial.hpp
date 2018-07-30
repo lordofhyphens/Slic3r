@@ -29,6 +29,8 @@ namespace Slic3r
 // how much we extend support around the actual contact area
 constexpr coordf_t SUPPORT_MATERIAL_MARGIN = 1.5;
 
+#ifndef SLIC3RXS
+
 constexpr coordf_t MARGIN_STEP = SUPPORT_MATERIAL_MARGIN / 3;
 
 constexpr coordf_t PILLAR_SIZE = 2.5;
@@ -160,8 +162,7 @@ private:
     vector<coord_t> support_z;
 
 };
+#endif // SLIC3RXS
 
-}
-
+} // namespace Slic3r
 #endif
-

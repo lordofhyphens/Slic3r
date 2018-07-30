@@ -1,3 +1,4 @@
+#ifndef SLIC3RXS
 #include "SupportMaterial.hpp"
 
 namespace Slic3r
@@ -676,7 +677,7 @@ SupportMaterial::generate_base_layers(vector<coord_t> &support_z,
             if (base.count(i + 1) > 0)
                 append_to(ps_1, base[i + 1]); // support regions on upper layer.
 
-            if (interface.count(i + 1) > 0)
+            if (_interface.count(i + 1) > 0)
                 append_to(ps_1, _interface[i + 1]); // interface regions on upper layer
 
             if (!upper_contact.empty())
@@ -1229,4 +1230,5 @@ SupportMaterial::create_circle(coord_t radius)
     return Polygon(points);
 }
 
-}
+} // namepsace Slic3r
+#endif //SLIC3RXS
