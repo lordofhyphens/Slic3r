@@ -35,20 +35,20 @@ constexpr coordf_t PILLAR_SPACING = 10;
 struct toolpaths_params
 {
     int contact_loops;
-    coordf_t circle_radius;
-    coordf_t circle_distance;
+    coord_t circle_radius;
+    coord_t circle_distance;
     Polygon circle;
     SupportMaterialPattern pattern;
     vector<int> angles;
-    double interface_angle{};
+    int interface_angle{};
     double interface_spacing{};
     float interface_density{};
     double support_spacing{};
     double support_density{};
 
     explicit toolpaths_params(int contact_loops = 0,
-                              coordf_t circle_radius = 0,
-                              coordf_t circle_distance = 0,
+                              coord_t circle_radius = 0,
+                              coord_t circle_distance = 0,
                               Polygon circle = Polygon(),
                               const SupportMaterialPattern &pattern = SupportMaterialPattern(),
                               vector<int> angles = vector<int>())
@@ -80,25 +80,25 @@ public:
 
     /// Generate the support layers slicing z coordinates.
     vector<coord_t> support_layers_z(vector<coord_t> contact_z,
-                                      vector<coord_t> top_z,
-                                      coord_t max_object_layer_height);
+                                     vector<coord_t> top_z,
+                                     coord_t max_object_layer_height);
 
     pair<map<coord_t, Polygons>, map<coord_t, Polygons>> contact_area(PrintObject *object); // DONE
 
-    map<coord_t, Polygons> object_top(PrintObject *object, map<coord_t, Polygons> *contact); // DONE
+    map<coord_t, Polygons> object_top(PrintObject *object, map<coord_t, Polygons> &contact); // DONE
 
     void generate_pillars_shape(const map<coord_t, Polygons> &contact,
                                 const vector<coord_t> &support_z,
                                 map<int, Polygons> &shape); // DONE
 
-    map<int, Polygons> generate_base_layers(vector<coord_t> support_z,
-                                            map<coord_t, Polygons> contact,
-                                            map<int, Polygons> interface,
-                                            map<coord_t, Polygons> top); // DONE
+    map<int, Polygons> generate_base_layers(vector<coord_t> &support_z,
+                                            map<coord_t, Polygons> &contact,
+                                            map<int, Polygons> &interface,
+                                            map<coord_t, Polygons> &top); // DONE
 
-    map<int, Polygons> generate_interface_layers(vector<coord_t> support_z,
-                                                 map<coord_t, Polygons> contact,
-                                                 map<coord_t, Polygons> top);
+    map<int, Polygons> generate_interface_layers(vector<coord_t> &support_z,
+                                                 map<coord_t, Polygons> &contact,
+                                                 map<coord_t, Polygons> &top);
 
     void generate_bottom_interface_layers(const vector<coord_t> &support_z,
                                           map<int, Polygons> &base,
@@ -115,7 +115,9 @@ public:
     // This method removes object silhouette from support material
     // (it's used with interface and base only). It removes a bit more,
     // leaving a thin gap between object and support in the XY plane.
-    void clip_with_object(map<int, Polygons> &support, vector<coord_t> support_z, PrintObject &object); // DONE Partially
+    void clip_with_object(map<int, Polygons> &support,
+                          vector<coord_t> support_z,
+                          PrintObject &object); // DONE Partially
 
     void process_layer(int layer_id, toolpaths_params params);
 
@@ -128,21 +130,22 @@ private:
                     Flow interface_flow)
         : config(print_config),
           object_config(print_object_config),
-          flow(Flow(0, 0, 0)),
-          first_layer_flow(Flow(0, 0, 0)),
-          interface_flow(Flow(0, 0, 0)),
+          flow(flow),
+          first_layer_flow(first_layer_flow),
+          interface_flow(interface_flow),
           object(nullptr)
     {}
-
-    // Get the maximum layer height given a print object.
-    coord_t get_max_layer_height(PrintObject *object); // DONE
 
     // Return polygon vector given a vector of surfaces.
     Polygons p(SurfacesPtr &surfaces);
 
-    vector<coord_t> get_keys_sorted(map<coord_t, Polygons> _map); // DONE
+    // Get the keys of an std::map sorted ascendingly.
+    vector<coord_t> keys_sorted(map<coord_t, Polygons> &map_); // DONE
 
-    Polygon create_circle(coordf_t radius);
+    // Get the maximum layer height given a print object.
+    coord_t max_layer_height(PrintObject *object); // DONE
+
+    Polygon create_circle(coord_t radius);
 
     // Used during generate_toolpaths function.
     PrintObject *object;
@@ -150,6 +153,7 @@ private:
     map<coord_t, Polygons> contact;
     map<int, Polygons> interface;
     map<int, Polygons> base;
+    vector<coord_t> support_z;
 
 };
 
