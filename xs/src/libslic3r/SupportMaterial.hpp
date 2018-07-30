@@ -1,21 +1,25 @@
 #ifndef slic3r_SupportMaterial_hpp_
 #define slic3r_SupportMaterial_hpp_
 
+#include <algorithm>
+#include <iostream>
+#include <map>
 #include <numeric>
 #include <utility>
 #include <vector>
-#include <iostream>
-#include <algorithm>
+
 #include "libslic3r.h"
-#include "PrintConfig.hpp"
-#include "Flow.hpp"
-#include "Layer.hpp"
-#include "Geometry.hpp"
-#include "Print.hpp"
+
 #include "ClipperUtils.hpp"
 #include "ExPolygon.hpp"
+#include "Fill/Fill.hpp"
+#include "Flow.hpp"
+#include "Geometry.hpp"
+#include "Layer.hpp"
+#include "Polygon.hpp"
+#include "Print.hpp"
+#include "PrintConfig.hpp"
 #include "SVG.hpp"
-#include <libslic3r/Fill/Fill.hpp>
 
 using namespace std;
 
@@ -93,7 +97,7 @@ public:
 
     map<int, Polygons> generate_base_layers(vector<coord_t> &support_z,
                                             map<coord_t, Polygons> &contact,
-                                            map<int, Polygons> &interface,
+                                            map<int, Polygons> &_interface,
                                             map<coord_t, Polygons> &top); // DONE
 
     map<int, Polygons> generate_interface_layers(vector<coord_t> &support_z,
@@ -103,7 +107,7 @@ public:
     void generate_bottom_interface_layers(const vector<coord_t> &support_z,
                                           map<int, Polygons> &base,
                                           map<coord_t, Polygons> &top,
-                                          map<int, Polygons> &interface); // DONE
+                                          map<int, Polygons> &_interface); // DONE
 
     coordf_t contact_distance(coordf_t layer_height, coordf_t nozzle_diameter);
 
@@ -151,7 +155,7 @@ private:
     PrintObject *object;
     map<coord_t, Polygons> overhang;
     map<coord_t, Polygons> contact;
-    map<int, Polygons> interface;
+    map<int, Polygons> _interface;
     map<int, Polygons> base;
     vector<coord_t> support_z;
 
@@ -160,3 +164,4 @@ private:
 }
 
 #endif
+

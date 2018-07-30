@@ -1216,7 +1216,7 @@ PrintObject::combine_infill()
                     continue;
                 // Check whether the combination of this layer with the lower layers' buffer
                 // would exceed max layer height or max combined layer count.
-                if (current_height + layer->height >= nozzle_diameter + EPSILON || num_layers >= every) {
+                if (current_height + layer->height >= nozzle_diameter + EPSILON || (every < 0 || num_layers >= static_cast<size_t>(every)) ) {
                     // Append combination to lower layer.
                     combine[layer_idx - 1] = num_layers;
                     current_height = 0.;
@@ -1417,7 +1417,6 @@ PrintObject::discover_horizontal_shells()
 void
 PrintObject::_discover_external_horizontal_shells(LayerRegion* layerm, const size_t& i, const size_t& region_id)
 {
-    auto* print {this->print()};
     const auto& region_config {layerm->region()->config};
     for (auto& type : { stTop, stBottom, stBottomBridge }) {
         // find slices of current type for current layer
@@ -1439,7 +1438,6 @@ PrintObject::_discover_external_horizontal_shells(LayerRegion* layerm, const siz
 
         if (solid.size() == 0) continue;
 
-        Slic3r::Log::debug("PrintObject") << "Layer " << i << " has " << (type == stTop ? "top" : "bottom") << "surfaces.\n";
         auto solid_layers { type == stTop ? region_config.top_solid_layers() : region_config.bottom_solid_layers() };
 
         if (region_config.min_top_bottom_shell_thickness() > 0) {
@@ -1457,12 +1455,10 @@ PrintObject::_discover_external_horizontal_shells(LayerRegion* layerm, const siz
 void
 PrintObject::_discover_neighbor_horizontal_shells(LayerRegion* layerm, const size_t& i, const size_t& region_id, const SurfaceType& type, Polygons& solid, const size_t& solid_layers)
 {
-    auto* print {this->print()};
     const auto& region_config {layerm->region()->config};
 
     for (int n = (type == stTop ? i-1 : i+1); std::abs(n-int(i)) < solid_layers; (type == stTop ? n-- : n++)) {
-        if (n < 0 || n >= this->layer_count()) continue;
-        Slic3r::Log::debug("PrintObject") << " looking for neighbors on layer " << n << "...\n";
+        if (n < 0 || static_cast<size_t>(n) >= this->layer_count()) continue;
 
         auto* neighbor_layerm { this->get_layer(n)->regions.at(region_id) };
         // make a copy so we can use them even after clearing the original collection
@@ -1545,7 +1541,6 @@ PrintObject::_discover_neighbor_horizontal_shells(LayerRegion* layerm, const siz
         tmp_internal = to_polygons(neighbor_fill_surfaces.filter_by_type(stInternal));
         auto internal { diff_ex(tmp_internal, to_polygons(internal_solid), 1) };
 
-        Slic3r::Log::debug("PrintObject") << "    " << internal_solid.size() << " internal-solid and " << internal.size() << " internal surfaces found\n";
         // assign resulting internal surfaces to layer
         neighbor_fill_surfaces.clear();
         for (const auto& poly : internal) {

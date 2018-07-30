@@ -21,6 +21,8 @@ addons:
     packages:
     - g++-7
     - gcc-7
+    - g++-4.9
+    - gcc-4.9
     - libgtk2.0-0 
     - libgtk2.0-dev
     - freeglut3
@@ -48,8 +50,8 @@ matrix:
           install:
             - export BOOST_DIR=$HOME/boost_1_63_0
             - export SLIC3R_STATIC=1
-            - export CXX=g++-7
-            - export CC=g++-7
+            - export CXX=g++-4.9
+            - export CC=g++-4.9
             - source $HOME/perl5/perlbrew/etc/bashrc
           after_success:
             - eval $(perl -Mlocal::lib=$TRAVIS_BUILD_DIR/local-lib)
@@ -78,6 +80,7 @@ matrix:
             - package/deploy/sftp-symlink.sh linux ~/slic3r-upload.rsa AppImage Slic3r*.AppImage
             - package/deploy/sftp-symlink.sh linux ~/slic3r-upload.rsa tar.bz2 *.bz2
         - os: osx
+          osx_image: xcode9.4
           before_install:
             - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then ( sudo Xvfb :99 -ac -screen 0 1024x768x8; echo ok )& fi
             - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update -v        ; fi
