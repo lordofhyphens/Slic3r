@@ -1304,8 +1304,6 @@ PrintObject::infill()
     this->_infill();
 }
 
-#endif //SLIC3RXS
-
 SupportMaterial *
 PrintObject::_support_material()
 {
@@ -1368,7 +1366,7 @@ PrintObject::_support_material_flow(FlowRole role)
 
     return support_flow;
 }
-#ifndef SLIC3RXS
+
 void
 PrintObject::generate_support_material() 
 {
