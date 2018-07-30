@@ -7,7 +7,7 @@ using namespace std;
 using namespace Slic3r;
 using namespace Slic3r::Test;
 
-// Sub test functions.
+// Sub-tests functions.
 void test_1_check(Print &print, bool &a, bool &b, bool &c, bool &d);
 bool test_6_check(config_ptr &config);
 
@@ -115,7 +115,7 @@ SCENARIO("SupportMaterial: support_layers_z and contact_distance")
 }
 
 // Test 2.
-TEST_CASE("Support Material: check support extruders are used for supports only", "[!mayfail]")
+TEST_CASE("SupportMaterial: support extruders are used for supports only")
 {
     auto config{Config::new_from_defaults()};
     config->set("raft_layers", 3);
@@ -161,6 +161,75 @@ TEST_CASE("Support Material: check support extruders are used for supports only"
                         });
 }
 
+// Test 3.
+TEST_CASE("SupportMaterial: raft layers are correctly generated", "[!mayfail]")
+{
+    auto config{Config::new_from_defaults()};
+    config->set("skirts", 0);
+    config->set("raft_layers", 3);
+    config->set("support_material_pattern", "honeycomb"); // GIVES ERROR TODO @Samir55 fix.
+    config->set("support_material_extrusion_width", 0.6);
+    config->set("first_layer_extrusion_width", "100%");
+    config->set("bridge_speed", 99);
+    config->set("cooling", 0);                  // Prevent speed alteration.
+    config->set("first_layer_speed", "100%");   // Prevent speed alteration.
+    config->set("start_gcode", "");             // Prevent any unexpected Z move.
+
+    // Initialize a print object from the config.
+    Slic3r::Model model;
+    auto gcode{std::stringstream("")};
+    auto print{Slic3r::Test::init_print({TestMesh::cube_20x20x20}, model, config)};
+
+    // Generate gcode for the cube model.
+    Slic3r::Test::gcode(gcode, print);
+
+    int layer_id = -1; // So that first Z move sets this to 0.
+
+    Polygons raft;
+    Polygons first_object_layer;
+    map<string, int> first_object_layer_speeds;
+
+    auto parser{Slic3r::GCodeReader()};
+    parser.parse_stream(gcode,
+                        [&layer_id, &raft, &first_object_layer, &first_object_layer_speeds, &config](Slic3r::GCodeReader &self,
+                                                                                                     const Slic3r::GCodeReader::GCodeLine &line)
+                        {
+                            if (line.extruding() && line.dist_XY() > EPSILON) {
+                                if (layer_id <= config->getInt("raft_layers")) {
+                                    // This is a raft layer or the first object layer.
+                                    Points points = {Point(scale_(self.X), scale_(self.Y)),
+                                                     Point(scale_(line.new_X()), scale_(line.new_Y()))};
+                                    Polyline new_line = Polyline();
+                                    new_line.append(points);
+
+                                    Polygons path = offset(new_line,
+                                                           scale_(config->getFloat("support_material_extrusion_width")
+                                                                      / 2));
+                                    if (layer_id < config->getInt("raft_layers")) {
+                                        // This is a raft layer.
+                                        append_to(raft, path);
+                                    }
+                                    else {
+                                        append_to(first_object_layer, path);
+                                        if (line.args.count('F') > 0 && !line.args.at('F').empty())
+                                            first_object_layer_speeds[line.args.at('F')] = 1;
+                                        else
+                                            first_object_layer_speeds[to_string(self.F)] = 1;
+                                    }
+                                }
+                            }
+                            else if (line.cmd == "G1" && line.dist_Z() > 0) {
+                                layer_id++;
+                            }
+                        });
+    REQUIRE((diff(first_object_layer, raft)).empty()); // First object layer is completely supported by raft.
+    REQUIRE(first_object_layer_speeds.size() == 1); // Only one speed used in first object layer.
+    REQUIRE(first_object_layer_speeds.count(to_string(config->getFloat("bridge_speed") * 60)) == 1); // Bridge speed used in first object layer
+}
+
+// Test 4.
+
+// Test 5.
 
 // Test 6.
 SCENARIO("SupportMaterial: Checking bridge speed")
@@ -207,8 +276,10 @@ SCENARIO("SupportMaterial: Checking bridge speed")
     }
 }
 
+// Test 7.
+
 // Test 8.
-TEST_CASE("SupportMaterial: forced support is generated", "")
+TEST_CASE("SupportMaterial: forced support is generated")
 {
     // Create a mesh & modelObject.
     TriangleMesh mesh = TriangleMesh::make_cube(20, 20, 20);
