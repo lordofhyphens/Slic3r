@@ -307,6 +307,7 @@ PrintGCode::process_layer(size_t idx, const Layer* layer, const Points& copies)
         std::vector<double> mm3_per_mm;
         for (auto region_id = 0U; region_id < print.regions.size(); ++region_id) {
             const auto& region {print.regions.at(region_id)};
+            if (layer->region_count() == 0) continue;
             const auto& layerm {layer->get_region(region_id)};
 
             if (!(region->config.get_abs_value("perimeter_speed") > 0 &&
