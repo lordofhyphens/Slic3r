@@ -141,6 +141,7 @@ add_library(libslic3r STATIC
     ${LIBDIR}/libslic3r/PrintGCode.cpp
     ${LIBDIR}/libslic3r/GCode/CoolingBuffer.cpp
     ${LIBDIR}/libslic3r/GCode/SpiralVase.cpp
+    ${LIBDIR}/libslic3r/GCode/ArcFitting.cpp
     ${LIBDIR}/libslic3r/GCodeReader.cpp
     ${LIBDIR}/libslic3r/GCodeSender.cpp
     ${LIBDIR}/libslic3r/GCodeTimeEstimator.cpp
@@ -241,6 +242,7 @@ set(SLIC3R_TEST_SOURCES
     ${TESTDIR}/libslic3r/test_test_data.cpp
     ${TESTDIR}/libslic3r/test_geometry.cpp
     ${TESTDIR}/libslic3r/test_gcodewriter.cpp
+    ${TESTDIR}/libslic3r/test_arc_fitting.cpp
 )
 
 add_executable(slic3r slic3r.cpp)
