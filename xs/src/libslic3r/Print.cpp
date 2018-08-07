@@ -7,6 +7,7 @@
 #include "Geometry.hpp"
 #include "SupportMaterial.hpp"
 #include <algorithm>
+#include <fstream>
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 
