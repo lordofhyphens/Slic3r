@@ -8,7 +8,7 @@ namespace Slic3r {
 std::string
 ArcFitting::process_layer(const std::string &gcode)
 {
-    
+    Log::info("gcode") << gcode << std::endl; 
     return gcode;
 }
 

@@ -695,7 +695,7 @@ PrintGCode::_extrude_perimeters(std::map<size_t,ExtrusionEntityCollection> &by_r
             gcode += this->_gcodegen.extrude(*ee, "perimeter");
         }
     }
-    return gcode;
+    return this->_arc_fitting.process_layer(gcode);
 }
 
 // Chain the paths hierarchically by a greedy algorithm to minimize a travel distance.
@@ -748,7 +748,8 @@ PrintGCode::PrintGCode(Slic3r::Print& print, std::ostream& _fh) :
         objects(print.objects),
         fh(_fh),
         _cooling_buffer(Slic3r::CoolingBuffer(this->_gcodegen)),
-        _spiral_vase(Slic3r::SpiralVase(this->config))
+        _spiral_vase(Slic3r::SpiralVase(this->config)),
+        _arc_fitting(Slic3r::ArcFitting(this->config))
 { 
     size_t layer_count {0};
     if (config.complete_objects) {
@@ -762,6 +763,7 @@ PrintGCode::PrintGCode(Slic3r::Print& print, std::ostream& _fh) :
     _gcodegen.apply_print_config(config);
     
     if (config.spiral_vase) _spiral_vase.enable = true;
+    if (config.gcode_arcs) _arc_fitting.enable = true;
 
     auto extruders {print.extruders()}; 
     _gcodegen.set_extruders(extruders.cbegin(), extruders.cend());

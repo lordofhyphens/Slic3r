@@ -5,6 +5,7 @@
 #include "GCode.hpp"
 #include "GCode/CoolingBuffer.hpp"
 #include "GCode/SpiralVase.hpp"
+#include "GCode/ArcFitting.hpp"
 #include "Geometry.hpp"
 #include "Flow.hpp"
 #include "ExtrusionEntity.hpp"
@@ -46,7 +47,7 @@ private:
     Slic3r::CoolingBuffer _cooling_buffer;
     Slic3r::SpiralVase _spiral_vase;
 //    Slic3r::VibrationLimit _vibration_limit;
-//    Slic3r::ArcFitting _arc_fitting;
+    Slic3r::ArcFitting _arc_fitting;
 //    Slic3r::PressureRegulator _pressure_regulator;
 
     /// presence in the array indicates that the 
