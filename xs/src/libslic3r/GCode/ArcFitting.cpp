@@ -2,14 +2,98 @@
 #include "libslic3r.h"
 #include "Log.hpp"
 #include <sstream>
+#define PRECISION(val, precision) std::fixed << std::setprecision(precision) << val
 
 namespace Slic3r {
+
+std::string arcpath_to_gcode(ArcPath ap, long curF, float curE, float E, std::string comment){
+    std::ostringstream gcode;
+    std::string extrusion_axis = "A";
+    Point last = ap.points.at(0);
+    gcode <<  "G1 F" << curF << "\n"; // the old perl code applied this once per "chunk of lines", but this should have the same effect
+    for(auto i = 1U; i < ap.points.size(); i++){
+        if (ap.arc_types.at(i) == LINE) {
+            E += curE * unscale(last.distance_to(ap.points.at(i)));
+            gcode << "G1 X" << PRECISION(unscale(ap.points.at(i).x),3)
+                  << "Y" << PRECISION(unscale(ap.points.at(i).y),3)
+                  << extrusion_axis << PRECISION(E,5)
+                  << " ; " << comment << "\n";
+        } else {
+            E += curE * unscale(last.distance_to(ap.points.at(i)));
+            //TODO: proper arc length calculation 
+            gcode << (ap.arc_types.at(i) == CCW?"G2":"G3")
+                  << " X" << PRECISION(unscale(ap.points.at(i).x),3)
+                  << " Y" << PRECISION(unscale(ap.points.at(i).y),3)
+                  // XY distance of the center from the start position
+                  << " I" << PRECISION(unscale(ap.centers.at(i).x - ap.points.at(i).x),3)
+                  << " J" << PRECISION(unscale(ap.centers.at(i).y - ap.points.at(i).y),3) 
+                  << extrusion_axis << PRECISION(E,5)
+                  << " F" << curF
+                  << " ; " << comment << "\n";
+        }
+    }
+    return gcode.str();
+}
+
 
 std::string
 ArcFitting::process_layer(const std::string &gcode)
 {
-    Log::info("gcode") << gcode << std::endl; 
-    return gcode;
+    Log::info("gcode") << gcode << std::endl;
+    std::string new_gcode;
+    Polyline *path = nullptr;
+    float curE, curE0;
+    long curF;
+    std::string comment; 
+    this->_reader.parse(gcode, [&new_gcode, &path, &curE, &curE0, &curF, &comment]
+        (GCodeReader &r, GCodeReader::GCodeLine line) {
+        if (line.extruding() && line.dist_XY() > 0) {
+            // this is an extrusion segment
+            
+            // get segment speed
+            auto F = line.new_F();
+            
+            // get extrusion per unscaled distance unit
+            //my $e = $info->{dist_E} / unscale($line->length);
+            float e = 0;
+
+            if (path != nullptr && F == curF && abs(e - curE) < Geometry::epsilon) {
+                // if speed and extrusion per unit are the same as the previous segments,
+                // append this segment to path
+                path->points.push_back(Point::new_scale(line.new_X(),line.new_Y()));
+            } else if (path != nullptr) {
+                // segment can't be appended to previous path, so we flush the previous one
+                // and start over
+                
+                new_gcode += arcpath_to_gcode(arcify(*path,5,5),curF,curE,curE0,comment);
+                delete path;
+                path = nullptr;
+            }
+            
+            if (path == nullptr) {
+                // if this is the first segment of a path, start it from scratch
+                path = new Polyline;
+                path->points = {Point::new_scale(r.X, r.Y),Point::new_scale(line.new_X(),line.new_Y())};
+                curF = F;
+                curE = e;
+                curE0 = r.E;
+                comment = line.comment;
+            }
+        } else {
+            // if we have a path, we flush it and go on
+            if(path != nullptr){
+                new_gcode += arcpath_to_gcode(arcify(*path,5,5),curF,curE,curE0,comment);
+                delete path;
+                path = nullptr;
+            }
+            new_gcode += line.raw + "\n";
+        }
+    });
+    if(path != nullptr){
+        new_gcode += arcpath_to_gcode(arcify(*path,5,5),curF,curE,curE0,comment);
+        delete path;
+    } 
+    return new_gcode;
 }
 
 struct ArcProperties {
