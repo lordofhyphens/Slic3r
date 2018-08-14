@@ -39,7 +39,7 @@ std::string arcpath_to_gcode(ArcPath ap, long curF, float curE, float E, std::st
 std::string
 ArcFitting::process_layer(const std::string &gcode)
 {
-    Log::info("gcode") << gcode << std::endl;
+//    Log::info("gcode") << gcode << std::endl;
     std::string new_gcode;
     Polyline *path = nullptr;
     float curE, curE0;
@@ -174,7 +174,6 @@ ArcPath build_arcpath(std::vector<std::pair<size_t,size_t>> &arcs, Polyline &pl)
     //out.points = pl.points;
     auto i = 0U;
     for(auto arc : arcs){
-        Log::warn("arc")  << arc.first << " , " << arc.second << std::endl;
         // TODO: assert arc.first && arc.second < pl.points.size
         for(; i < arc.first; i++){
             out.centers.push_back(Point(0,0));

@@ -4,7 +4,9 @@
 #include "Geometry.hpp"
 #include "GCode/ArcFitting.hpp"
 #include "Log.hpp"
+#include "test_data.hpp"
 using namespace Slic3r;
+using namespace Slic3r::Test;
 
 void make_circle(Points &output, size_t n, double r, Point center = Point(0,0), double a = 0.0, double b = 2*PI, double noise = 0.0){
     double arcdiff = (b-a)/n;
@@ -257,3 +259,40 @@ SCENARIO("Arcfitting successfully finds and replaces arcs in polylines"){
     } 
 }
 
+SCENARIO("Arcfitting gcode functionality"){
+    GIVEN("A simple cube print"){
+        auto config {Slic3r::Config::new_from_defaults()};
+        auto no_arcs {std::stringstream("")};
+        auto arcs {std::stringstream("")};
+        config->set("first_layer_extrusion_width", 0);
+        config->set("start_gcode", "");
+        {
+            Slic3r::Model model;
+            auto print {Slic3r::Test::init_print({TestMesh::sphere_50mm}, model, config)};
+            print->process();
+            Slic3r::Test::gcode(no_arcs, print);
+        }
+        {
+            Slic3r::Model model;
+            config->set("gcode_arcs", true);
+            auto print {Slic3r::Test::init_print({TestMesh::sphere_50mm}, model, config)};
+            print->process();
+            Slic3r::Test::gcode(arcs, print);
+        }
+        THEN("Toggling on arc fitting doesn't change the gcode"){
+            std::string a, b;
+            std::regex comments(";.*$");
+            a = std::regex_replace(arcs.str(),comments,";");
+            //a.erase(0,200);
+            //a.erase(a.end()-2000,a.end());
+            //a.resize(24000);
+            //auto b = no_arcs.str();
+            b = std::regex_replace(no_arcs.str(),comments,";");
+            //b.erase(0,200);
+            //b.erase(b.end()-2000,b.end());
+           // b.resize(24000);
+            REQUIRE(a == b);
+            //REQUIRE(arcs.str() == no_arcs.str());
+        }
+    }
+}
