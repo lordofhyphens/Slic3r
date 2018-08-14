@@ -74,12 +74,14 @@ GCodeReader::parse_line(std::string line, callback_t callback)
     if (callback) callback(*this, gline);
     
     // update coordinates
-    if (gline.cmd == "G0" || gline.cmd == "G1" || gline.cmd == "G92") {
+    if (gline.cmd == "G0" || gline.cmd == "G1" || gline.cmd == "G2" || gline.cmd == "G3" || gline.cmd == "G92") {
         this->X = gline.new_X();
         this->Y = gline.new_Y();
         this->Z = gline.new_Z();
         this->E = gline.new_E();
         this->F = gline.new_F();
+        this->I = gline.new_I();
+        this->J = gline.new_J();
     }
 }
 

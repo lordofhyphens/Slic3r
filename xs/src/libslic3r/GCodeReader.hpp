@@ -31,6 +31,8 @@ class GCodeReader {
         float new_Z() const { return this->has('Z') ? atof(this->args.at('Z').c_str()) : this->reader->Z; };
         float new_E() const { return this->has('E') ? atof(this->args.at('E').c_str()) : this->reader->E; };
         float new_F() const { return this->has('F') ? atof(this->args.at('F').c_str()) : this->reader->F; };
+        float new_I() const { return this->has('I') ? atof(this->args.at('I').c_str()) : this->reader->I; };
+        float new_J() const { return this->has('J') ? atof(this->args.at('J').c_str()) : this->reader->J; };
         float dist_X() const { return this->new_X() - this->reader->X; };
         float dist_Y() const { return this->new_Y() - this->reader->Y; };
         float dist_Z() const { return this->new_Z() - this->reader->Z; };
@@ -40,18 +42,18 @@ class GCodeReader {
             float y = this->dist_Y();
             return sqrt(x*x + y*y);
         };
-        bool extruding() const { return this->cmd == "G1" && this->dist_E() > 0; };
+        bool extruding() const { return (this->cmd == "G1" || this->cmd == "G2" || this->cmd == "G3") && this->dist_E() > 0; };
         bool retracting() const { return this->cmd == "G1" && this->dist_E() < 0; };
         bool travel() const { return this->cmd == "G1" && !this->has('E'); };
         void set(char arg, std::string value);
     };
     typedef std::function<void(GCodeReader&, const GCodeLine&)> callback_t;
     
-    float X, Y, Z, E, F;
+    float X, Y, Z, E, F, I, J;
     bool verbose;
     callback_t callback; 
     
-    GCodeReader() : X(0), Y(0), Z(0), E(0), F(0), verbose(false), _extrusion_axis('E') {};
+    GCodeReader() : X(0), Y(0), Z(0), E(0), F(0), I(0), J(0), verbose(false), _extrusion_axis('E') {};
     void apply_config(const PrintConfigBase &config);
     void parse(const std::string &gcode, callback_t callback);
     void parse_stream(std::istream &gcode, callback_t callback);

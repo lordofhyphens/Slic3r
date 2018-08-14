@@ -280,19 +280,49 @@ SCENARIO("Arcfitting gcode functionality"){
             Slic3r::Test::gcode(arcs, print);
         }
         THEN("Toggling on arc fitting doesn't change the gcode"){
+            bool arc = false;
+            GCodeReader tmp;
+            tmp.parse(arcs.str(), [&arc]
+                (GCodeReader &r, GCodeReader::GCodeLine line) {
+                if (line.cmd == "G2" || line.cmd == "G3") {
+                    arc = true;
+                }
+            });
+            INFO("Arcs aren't normally created, so arc fitting must have introduced some");
+            REQUIRE(!arc);
+
             std::string a, b;
-            std::regex comments(";.*$");
-            a = std::regex_replace(arcs.str(),comments,";");
-            //a.erase(0,200);
-            //a.erase(a.end()-2000,a.end());
-            //a.resize(24000);
-            //auto b = no_arcs.str();
-            b = std::regex_replace(no_arcs.str(),comments,";");
-            //b.erase(0,200);
-            //b.erase(b.end()-2000,b.end());
-           // b.resize(24000);
+            std::regex comments(";.*[\\n$]");
+            a = std::regex_replace(arcs.str(),comments,";\n");
+            b = std::regex_replace(no_arcs.str(),comments,";\n");
             REQUIRE(a == b);
-            //REQUIRE(arcs.str() == no_arcs.str());
         }
     }
+    GIVEN("A sphere printed to gcode"){
+        auto config {Slic3r::Config::new_from_defaults()};
+        auto gcode {std::stringstream("")};
+        config->set("first_layer_extrusion_width", 0);
+        config->set("gcode_arcs", true);
+        config->set("start_gcode", "");
+        Slic3r::Model model;
+        auto print {Slic3r::Test::init_print({TestMesh::sphere_50mm}, model, config)};
+        print->process();
+        Slic3r::Test::gcode(gcode, print);
+        THEN("All (at least one) arcs are centered on 0,0"){
+            bool arc = false;
+            GCodeReader tmp;
+            tmp.parse(gcode.str(), [&arc]
+                (GCodeReader &r, GCodeReader::GCodeLine line) {
+                if (line.cmd == "G2" || line.cmd == "G3") {
+                    arc = true;
+                    Pointf center(r.X+line.new_I(),r.Y+line.new_J());
+                    INFO(center.x);
+                    INFO(center.y);
+                    REQUIRE(center.x*center.x + center.y*center.y < 0.1);
+                }
+            });
+            REQUIRE(arc);
+        }
+    }
+
 }
