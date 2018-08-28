@@ -10,6 +10,7 @@ using namespace Slic3r::Test;
 // Sub-tests functions.
 void test_1_check(Print &print, bool &a, bool &b, bool &c, bool &d);
 bool test_6_check(config_ptr &config);
+bool test_5_check(config_ptr &config, int raft_layers);
 
 // Testing 0.1: supports material member functions.
 //TEST_CASE("A", "A")
@@ -299,6 +300,30 @@ TEST_CASE("SupportMaterial: support material interface extrusion width is used f
 }
 
 // Test 5.
+SCENARIO("SupportMaterial: correct number of raft layers is generated", "[!mayfail]")
+{
+    auto config{Config::new_from_defaults()};
+    config->set("skirts", 0);
+//    config->set("nozzle_diameter",[0.5]);
+    config->set("support_material_extruder", 2);
+    config->set("support_material_interface_extruder", 2);
+
+    WHEN("layer height = 0.35 and first_layer_height = 0.3") {
+        config->set("layer_height", 0.35);
+        config->set("first_layer_height", 0.3);
+
+        REQUIRE(test_5_check(config, 2) == true);
+        REQUIRE(test_5_check(config, 70) == true);
+    }
+
+    WHEN("layer height = 0.4 and first_layer_height = 0.35") {
+        config->set("layer_height", 0.4);
+        config->set("first_layer_height", 0.35);
+
+        REQUIRE(test_5_check(config, 3) == true);
+        REQUIRE(test_5_check(config, 70) == true);
+    }
+}
 
 // Test 6.
 SCENARIO("SupportMaterial: Checking bridge speed")
@@ -430,6 +455,42 @@ void test_1_check(Print &print, bool &a, bool &b, bool &c, bool &d)
         }
     }
     d = !wrong_top_spacing;
+}
+
+bool test_5_check(config_ptr &config, int raft_layers)
+{
+    config->set("raft_layers", raft_layers);
+
+    // Initialize a print object from the config.
+    Slic3r::Model model;
+    auto print{Slic3r::Test::init_print({TestMesh::cube_20x20x20}, model, config)};
+
+    // Get gcode.
+    auto gcode{std::stringstream("")};
+    Slic3r::Test::gcode(gcode, print);
+
+    map<coord_t, bool> raft_z;
+    int tool = -1;
+
+    auto parser{Slic3r::GCodeReader()};
+    parser.parse_stream(gcode,
+                        [&raft_z, &tool, &config](Slic3r::GCodeReader &self,
+                                                  const Slic3r::GCodeReader::GCodeLine &line)
+                        {
+                            smatch cmd_match;
+                            std::regex_match(line.cmd, cmd_match, regex("^T(\\d+)"));
+
+                            if (cmd_match.size() > 1) {
+                                tool = stoi(cmd_match[1]);
+                            }
+                            else if (line.extruding() && line.dist_XY() > 0) {
+                                if (tool == config->getInt("support_material_extruder") - 1) {
+                                    raft_z[scale_(self.Z)] = true;
+                                }
+                            }
+                        });
+
+    return raft_z.size() == config->getInt("raft_layers");
 }
 
 bool test_6_check(config_ptr &config)
