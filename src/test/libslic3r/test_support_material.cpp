@@ -12,12 +12,12 @@ void test_1_check(Print &print, bool &a, bool &b, bool &c, bool &d);
 bool test_6_check(config_ptr &config);
 bool test_5_check(config_ptr &config, int raft_layers);
 
-// Testing 0.1: supports material member functions.
+// Testing 0.1: supports material member functions. TODO @Samir55 to be removed.
 TEST_CASE("A", "A")
 {
     auto config{Config::new_from_defaults()};
     config->set("raft_layers", 3);
-    config->set("support_material", 1); // TODO @samir55 Add more checks
+    config->set("support_material", 1);
 
     Slic3r::Model model;
     auto print{Slic3r::Test::init_print({TestMesh::cube_20x20x20}, model, config)};
@@ -174,7 +174,6 @@ TEST_CASE("SupportMaterial: raft layers are correctly generated", "[!mayfail]")
     auto config{Config::new_from_defaults()};
     config->set("skirts", 0);
     config->set("raft_layers", 3);
-    config->set("support_material_pattern", "honeycomb"); // GIVES ERROR TODO @Samir55 fix.
     config->set("support_material_extrusion_width", 0.6);
     config->set("first_layer_extrusion_width", "100%");
     config->set("bridge_speed", 99);
@@ -186,6 +185,7 @@ TEST_CASE("SupportMaterial: raft layers are correctly generated", "[!mayfail]")
     Slic3r::Model model;
     auto gcode{std::stringstream("")};
     auto print{Slic3r::Test::init_print({TestMesh::cube_20x20x20}, model, config)};
+    print->default_object_config.support_material_pattern = SupportMaterialPattern ::smpHoneycomb;
 
     // Generate gcode for the cube model.
     Slic3r::Test::gcode(gcode, print);
@@ -242,7 +242,7 @@ TEST_CASE("SupportMaterial: support material interface extrusion width is used f
     config->set("layer_height", 0.2);
     config->set("skirts", 0);
     config->set("raft_layers", 5);
-    config->set("support_material_pattern", "rectilinear"); // GIVES ERROR TODO @Samir55 fix.
+//    config->set("support_material_pattern", "rectilinear"); // GIVES ERROR TODO @Samir55 fix.
     config->set("support_material_extrusion_width", 0.4);
     config->set("support_material_interface_extrusion_width", 0.6);
     config->set("support_material_interface_layers", 2);
@@ -256,6 +256,8 @@ TEST_CASE("SupportMaterial: support material interface extrusion width is used f
     Slic3r::Model model;
     auto gcode{std::stringstream("")};
     auto print{Slic3r::Test::init_print({TestMesh::cube_20x20x20}, model, config)};
+    print->default_object_config.support_material_pattern = SupportMaterialPattern ::smpRectilinear;
+
     Slic3r::Test::gcode(gcode, print);
 
     int layer_id = -1;
