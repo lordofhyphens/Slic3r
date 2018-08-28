@@ -224,10 +224,79 @@ TEST_CASE("SupportMaterial: raft layers are correctly generated", "[!mayfail]")
                         });
     REQUIRE((diff(first_object_layer, raft)).empty()); // First object layer is completely supported by raft.
     REQUIRE(first_object_layer_speeds.size() == 1); // Only one speed used in first object layer.
-    REQUIRE(first_object_layer_speeds.count(to_string(config->getFloat("bridge_speed") * 60)) == 1); // Bridge speed used in first object layer
+    REQUIRE(first_object_layer_speeds.count(to_string(config->getFloat("bridge_speed") * 60))
+                == 1); // Bridge speed used in first object layer
 }
 
 // Test 4.
+TEST_CASE("SupportMaterial: support material interface extrusion width is used for interfaces", "[!mayfail]")
+{
+    auto config{Config::new_from_defaults()};
+    config->set("layer_height", 0.2);
+    config->set("skirts", 0);
+    config->set("raft_layers", 5);
+    config->set("support_material_pattern", "rectilinear"); // GIVES ERROR TODO @Samir55 fix.
+    config->set("support_material_extrusion_width", 0.4);
+    config->set("support_material_interface_extrusion_width", 0.6);
+    config->set("support_material_interface_layers", 2);
+    config->set("first_layer_extrusion_width", "100%");
+    config->set("bridge_speed", 99);
+    config->set("cooling", 0);                  // Prevent speed alteration.
+    config->set("first_layer_speed", "100%");   // Prevent speed alteration.
+    config->set("start_gcode", "");             // Prevent any unexpected Z move.
+
+    // Initialize a print object from the config.
+    Slic3r::Model model;
+    auto gcode{std::stringstream("")};
+    auto print{Slic3r::Test::init_print({TestMesh::cube_20x20x20}, model, config)};
+    Slic3r::Test::gcode(gcode, print);
+
+    int layer_id = -1;
+    bool success = true;
+
+    auto parser{Slic3r::GCodeReader()};
+    parser.parse_stream(gcode,
+                        [&layer_id, &success, &config](Slic3r::GCodeReader &self,
+                                                       const Slic3r::GCodeReader::GCodeLine &line)
+                        {
+                            int raft_layers = config->getInt("raft_layers");
+                            if (line.extruding() && line.dist_XY() > 0) {
+                                // This is a raft layer.
+                                if ((layer_id < raft_layers) && (layer_id > 0)) {
+                                    float width;
+                                    auto support_layer_height =
+                                        config->get_ptr<ConfigOptionFloats>("nozzle_diameter")->get_at(0) * 0.75;
+
+                                    // Support layer.
+                                    if (raft_layers - config->getInt("support_material_interface_layers") > layer_id) {
+                                        width = config->getFloat("support_material_extrusion_width");
+                                    }
+                                    else { // Interface layer.
+                                        width = config->getFloat("support_material_interface_extrusion_width");
+                                    }
+
+                                    auto expected_E_per_mm3 = 4
+                                        / ((pow(config->get_ptr<ConfigOptionFloats>("filament_diameter")->get_at(0), 2)
+                                            * PI));
+                                    auto expected_mm3_per_mm =
+                                        width * support_layer_height + pow(support_layer_height, 2) / 4.0 * (PI - 4.0);
+                                    auto expected_e_per_mm = expected_E_per_mm3 * expected_mm3_per_mm;
+
+                                    auto e_per_mm = (line.dist_E() / line.dist_XY());
+
+                                    auto diff = abs(e_per_mm - expected_e_per_mm);
+
+                                    if (diff > 0.001) {
+                                        success = 0;
+                                    }
+                                }
+                            }
+                            else if (line.cmd == "G1" && line.dist_Z() > 0) {
+                                layer_id++;
+                            }
+                        });
+    REQUIRE(success == true);
+}
 
 // Test 5.
 
