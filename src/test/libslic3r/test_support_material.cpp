@@ -13,19 +13,25 @@ bool test_6_check(config_ptr &config);
 bool test_5_check(config_ptr &config, int raft_layers);
 
 // Testing 0.1: supports material member functions.
-//TEST_CASE("A", "A")
-//{
-//    auto config{Config::new_from_defaults()};
-//    config->set("raft_layers", 3);
-//    config->set("support_material", 1); // TODO @samir55 Add more checks
-//
-//    Slic3r::Model model;
-//    auto print{Slic3r::Test::init_print({TestMesh::cube_20x20x20}, model, config)};
-//    print.get()->objects.front()->generate_support_material();
-//
-//    REQUIRE(print.get()->objects.front()->support_layer_count() == 3);
-//
-//}
+TEST_CASE("A", "A")
+{
+    auto config{Config::new_from_defaults()};
+    config->set("raft_layers", 3);
+    config->set("support_material", 1); // TODO @samir55 Add more checks
+
+    Slic3r::Model model;
+    auto print{Slic3r::Test::init_print({TestMesh::cube_20x20x20}, model, config)};
+    print.get()->objects.front()->generate_support_material();
+
+    for (auto s : print.get()->objects.front()->support_layers) {
+        cout << "support layer height " << s->height << endl;
+        cout << "support layer  " << s->is_support() << endl;
+        cout << "support layer print_z " << s->print_z << endl;
+        cout << "support layer region count " << s->region_count() << endl << endl;
+    }
+    REQUIRE(print.get()->objects.front()->support_layer_count() == 3);
+
+}
 
 // Test 1.
 SCENARIO("SupportMaterial: support_layers_z and contact_distance")
@@ -132,7 +138,7 @@ TEST_CASE("SupportMaterial: support extruders are used for supports only")
     auto gcode{std::stringstream("")};
 
     auto print{Slic3r::Test::init_print({TestMesh::overhang}, model, config)};
-    Slic3r::Test::gcode(gcode, print); // 'no conflict between raft/support and brim'
+    Slic3r::Test::gcode(gcode, print); // "no conflict between raft/support and brim"
 
     REQUIRE(print.get()->objects.front()->support_layer_count() == 3);
 
@@ -304,7 +310,8 @@ SCENARIO("SupportMaterial: correct number of raft layers is generated", "[!mayfa
 {
     auto config{Config::new_from_defaults()};
     config->set("skirts", 0);
-//    config->set("nozzle_diameter",[0.5]);
+    config->get_ptr<ConfigOptionFloats>("nozzle_diameter")->values.clear();
+    config->get_ptr<ConfigOptionFloats>("nozzle_diameter")->values.push_back(0.5);
     config->set("support_material_extruder", 2);
     config->set("support_material_interface_extruder", 2);
 
@@ -333,7 +340,7 @@ SCENARIO("SupportMaterial: Checking bridge speed")
         config->set("brim_width", 0);
         config->set("skirts", 0);
         config->set("support_material", 1);
-        config->set("top_solid_layers", 0); // so that we don't have the internal bridge over infill.
+        config->set("top_solid_layers", 0); // so that we don"t have the internal bridge over infill.
         config->set("bridge_speed", 99);
         config->set("cooling", 0);
         config->set("first_layer_speed", "100%");
@@ -371,6 +378,68 @@ SCENARIO("SupportMaterial: Checking bridge speed")
 }
 
 // Test 7.
+TEST_CASE("SupportMaterial: Check support layer heights", "")
+{
+    auto config{Config::new_from_defaults()};
+    config->set("skirts", 0);
+    config->set("start_gcode", "");
+    config->set("raft_layers", 8);
+    config->get_ptr<ConfigOptionFloats>("nozzle_diameter")->values.clear();
+    config->get_ptr<ConfigOptionFloats>("nozzle_diameter")->values.push_back(0.4);
+    config->get_ptr<ConfigOptionFloats>("nozzle_diameter")->values.push_back(1);
+    config->set("layer_height", 0.1);
+    config->set("first_layer_height", 0.8);
+    config->set("support_material_extruder", 2);
+    config->set("support_material_interface_extruder", 2);
+    config->set("support_material_contact_distance", 0);
+
+    Slic3r::Model model;
+    auto print{Slic3r::Test::init_print({TestMesh::cube_20x20x20}, model, config)};
+
+    // Get gcode.
+    auto gcode{std::stringstream("")};
+    Slic3r::Test::gcode(gcode, print);
+
+    int tool = -1;
+    vector<coord_t> z;
+    map<int, vector<coord_t>> layer_heights_by_tool;
+
+    auto parser{Slic3r::GCodeReader()};
+    parser.parse_stream(gcode,
+                        [&tool, &z, &layer_heights_by_tool, &config](Slic3r::GCodeReader &self,
+                                                                     const Slic3r::GCodeReader::GCodeLine &line)
+                        {
+                            smatch cmd_match;
+                            std::regex_match(line.cmd, cmd_match, regex("^T(\\d+)"));
+
+                            if (cmd_match.size() > 1) {
+                                tool = stoi(cmd_match[1]);
+                            }
+                            else if (line.cmd == "G1" && line.args.count('Z')
+                                && scale_(stof(line.args.at('Z'))) != scale_(self.Z)) {
+                                z.push_back(scale_(stof(line.args.at('Z'))));
+                            }
+                            else if (line.extruding() && line.dist_XY() > 0) {
+                                if (layer_heights_by_tool.count(tool) <= 0) {
+                                    layer_heights_by_tool[tool] = vector<coord_t>();
+                                }
+                                if (z.size() > 1) {
+                                    layer_heights_by_tool[tool].push_back(z[z.size() - 1] - z[z.size() - 2]);
+                                }
+
+                            }
+                        });
+
+    for (const auto h : layer_heights_by_tool[config->getInt("perimeter_extruder") - 1]) {
+        REQUIRE(h <= scale_(config->get_ptr<ConfigOptionFloats>("nozzle_diameter")->get_at(0))
+        ); // No object layer is thicker than nozzle diameter.
+    }
+
+    for (const auto h : layer_heights_by_tool[config->getInt("support_material_extruder") - 1]) {
+        REQUIRE(abs(h - scale_(config->getFloat("layer_height")))
+                    != 0); // No support material layer is as thin as object layers.
+    }
+}
 
 // Test 8.
 TEST_CASE("SupportMaterial: forced support is generated")
